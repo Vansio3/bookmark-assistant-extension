@@ -1,11 +1,11 @@
 // Import our search logic from the new file
-import { flattenBookmarks, customSearch } from './search.js';
+import { customSearch } from './search.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('searchInput');
     const bookmarksList = document.getElementById('bookmarksList');
-    const appContainer = document.getElementById('app-container'); // Get the main container
-    let allBookmarks = []; // Will hold our flattened list of bookmarks
+    const appContainer = document.getElementById('app-container');
+    let allBookmarks = [];
     let selectedIndex = -1;
 
     /**
@@ -56,9 +56,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- Main Execution ---
 
-    // 1. Fetch and store all bookmarks on startup
-    chrome.bookmarks.getTree(function (bookmarkTree) {
-        allBookmarks = flattenBookmarks(bookmarkTree); // Uses imported function
+    // 1. Load bookmarks from cache on startup
+    chrome.storage.local.get('cachedBookmarks', (data) => {
+        if (data.cachedBookmarks) {
+            allBookmarks = data.cachedBookmarks;
+        } else {
+            // Fallback in case the cache is empty on first run
+            chrome.bookmarks.getTree((bookmarkTree) => {
+                const flattened = flattenBookmarks(bookmarkTree);
+                allBookmarks = flattened;
+                chrome.storage.local.set({ cachedBookmarks: flattened });
+            });
+        }
     });
 
     // 2. Add listener for typing in the search bar
@@ -67,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function () {
         selectedIndex = -1;
         if (query.length > 0) {
             appContainer.classList.add('is-searching');
-            const results = await customSearch(query, allBookmarks); // Await the async search
+            const results = await customSearch(query, allBookmarks);
             displayResults(results);
         } else {
             appContainer.classList.remove('is-searching');
@@ -97,4 +106,20 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     });
+
+    // Utility function for the fallback
+    function flattenBookmarks(bookmarkNodes) {
+        const bookmarks = [];
+        const stack = [...bookmarkNodes];
+        while (stack.length > 0) {
+            const node = stack.pop();
+            if (node.url) {
+                bookmarks.push({ title: node.title, url: node.url });
+            }
+            if (node.children) {
+                stack.push(...node.children);
+            }
+        }
+        return bookmarks;
+    }
 });

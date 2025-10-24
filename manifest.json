@@ -5,7 +5,8 @@
   "description": "An enhanced Chrome extension to intelligently filter and display your bookmarks.",
   "permissions": [
     "bookmarks",
-    "history"
+    "history",
+    "storage"
   ],
   "host_permissions": [
     "https://www.google.com/s2/favicons*"
@@ -17,6 +18,9 @@
       "48": "images/icon48.png",
       "128": "images/icon128.png"
     }
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "icons": {
     "16": "images/icon16.png",
