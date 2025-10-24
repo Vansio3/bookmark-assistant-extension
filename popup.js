@@ -152,6 +152,7 @@ document.addEventListener('DOMContentLoaded', function () {
             tagsInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    e.stopPropagation();
                     editButton.click();
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
@@ -171,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     async function executeSearch() {
         const query = searchInput.value.trim();
-        selectedIndex = -1; 
+        selectedIndex = -1;
     
         if (query.length > 0) {
             appContainer.classList.add('is-searching');
