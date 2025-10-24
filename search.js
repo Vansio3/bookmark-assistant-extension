@@ -56,6 +56,33 @@ export function flattenBookmarks(bookmarkNodes) {
 }
 
 /**
+ * Searches the user's browser history using the efficient chrome.history API.
+ * @param {string} query The search query.
+ * @returns {Promise<Array>} A sorted array of matching history objects, formatted for display.
+ */
+export async function searchHistory(query) {
+    return new Promise(resolve => {
+        chrome.history.search({
+            text: query,
+            maxResults: 50, // Limit results for performance and relevance
+            startTime: 0 // Search all available history
+        }, (historyItems) => {
+            // The display function expects an array of objects, where each object has an 'item' property.
+            const formattedResults = historyItems.map(historyItem => {
+                return {
+                    item: {
+                        title: historyItem.title || historyItem.url,
+                        url: historyItem.url
+                    }
+                };
+            });
+            resolve(formattedResults);
+        });
+    });
+}
+
+
+/**
  * Performs an advanced fuzzy search on a bookmarks list with a sophisticated scoring system.
  * It now searches both title and URL with different weights and prioritizes frequently visited sites.
  * @param {string} query The search query.

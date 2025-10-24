@@ -43,7 +43,7 @@ html, body {
     box-sizing: border-box;
     color: var(--text-color);
     font-size: 16px;
-    padding: 16px;
+    padding: 16px 50px 16px 16px; /* Added right padding for button */
     transition: border-color 0.2s ease;
     width: 100%;
 }
@@ -56,6 +56,38 @@ html, body {
 
 #searchInput::placeholder {
     color: var(--subtle-text);
+}
+
+/* --- NEW: History Toggle Button --- */
+#historyToggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: var(--card-bg);
+    color: var(--subtle-text);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#historyToggle:hover {
+    border-color: var(--primary-accent);
+    color: var(--text-color);
+}
+
+#historyToggle.active {
+    background-color: var(--primary-accent);
+    color: var(--selected-text-color);
+    border-color: var(--primary-accent);
 }
 
 

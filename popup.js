@@ -1,22 +1,26 @@
 // Import our search logic from the new file
-import { customSearch } from './search.js';
+import { customSearch, searchHistory } from './search.js';
 
 document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('searchInput');
     const bookmarksList = document.getElementById('bookmarksList');
     const appContainer = document.getElementById('app-container');
+    const historyToggle = document.getElementById('historyToggle');
+
     let allBookmarks = [];
     let selectedIndex = -1;
+    let searchMode = 'bookmarks'; // 'bookmarks' or 'history'
 
     /**
      * Renders the search results in the bookmarksList container.
      */
     function displayResults(results) {
         bookmarksList.innerHTML = '';
-        if (results.length === 0 && searchInput.value.length > 0) {
+        const itemsToDisplay = results.filter(result => result && result.item);
+        if (itemsToDisplay.length === 0 && searchInput.value.length > 0) {
             bookmarksList.innerHTML = '<div class="no-results">No matches found.</div>';
         } else {
-            results.forEach(function (result) {
+            itemsToDisplay.forEach(function (result) {
                 const bookmark = result.item;
                 const bookmarkElement = document.createElement('a');
                 bookmarkElement.href = bookmark.url;
@@ -71,6 +75,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         return bookmarks;
     }
+    
+    /**
+     * Central function to perform a search based on the current mode.
+     */
+    async function executeSearch() {
+        const query = searchInput.value.trim();
+        selectedIndex = -1; // Reset selection on new search
+        if (query.length > 0) {
+            appContainer.classList.add('is-searching');
+            let results;
+            if (searchMode === 'bookmarks') {
+                results = await customSearch(query, allBookmarks);
+            } else {
+                results = await searchHistory(query);
+            }
+            displayResults(results);
+        } else {
+            appContainer.classList.remove('is-searching');
+            bookmarksList.innerHTML = '';
+        }
+    }
 
     // --- Main Execution ---
 
@@ -92,24 +117,32 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // 1. Load bookmarks from cache on startup and then set up listeners
+    // 1. Load bookmarks from cache on startup
     initialize();
 
     // 2. Add listener for typing in the search bar
-    searchInput.addEventListener('input', async function () {
-        const query = this.value.trim();
-        selectedIndex = -1; // Reset selection on new search
-        if (query.length > 0) {
-            appContainer.classList.add('is-searching');
-            const results = await customSearch(query, allBookmarks);
-            displayResults(results);
+    searchInput.addEventListener('input', executeSearch);
+    
+    // 3. Add listener for the history toggle button
+    historyToggle.addEventListener('click', function() {
+        if (searchMode === 'bookmarks') {
+            searchMode = 'history';
+            historyToggle.textContent = 'H';
+            historyToggle.title = 'Search History';
+            historyToggle.classList.add('active');
+            searchInput.placeholder = 'Search history...';
         } else {
-            appContainer.classList.remove('is-searching');
-            bookmarksList.innerHTML = '';
+            searchMode = 'bookmarks';
+            historyToggle.textContent = 'B';
+            historyToggle.title = 'Search Bookmarks';
+            historyToggle.classList.remove('active');
+            searchInput.placeholder = 'Search bookmarks...';
         }
+        searchInput.focus(); // Re-focus the input field
+        executeSearch(); // Re-run the search in the new mode
     });
 
-    // 3. Add listener for keyboard navigation
+    // 4. Add listener for keyboard navigation
     document.addEventListener('keydown', function (e) {
         const items = bookmarksList.querySelectorAll('.bookmark-item');
         if (items.length === 0) return;
