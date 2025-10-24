@@ -169,7 +169,30 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateSelection() { const items = bookmarksList.querySelectorAll('.bookmark-item'); items.forEach((item, index) => { if (index === selectedIndex) { item.classList.add('selected'); item.scrollIntoView({ block: 'nearest' }); } else { item.classList.remove('selected'); } }); }
     function flattenBookmarks(bookmarkNodes) { const bookmarks = []; const stack = [...bookmarkNodes]; while (stack.length > 0) { const node = stack.pop(); if (node.url) { bookmarks.push({ title: node.title, url: node.url }); } if (node.children) { stack.push(...node.children); } } return bookmarks; }
     
-    async function executeSearch() { const query = searchInput.value.trim(); selectedIndex = -1; if (query.length > 0) { appContainer.classList.add('is-searching'); let results; if (searchMode === 'bookmarks') { results = await customSearch(query, allBookmarks, visitCountCache, domainScores, bookmarkTags); } else { results = await searchHistory(query); } displayResults(results); } else { appContainer.classList.remove('is-searching'); bookmarksList.innerHTML = ''; } }
+    async function executeSearch() {
+        const query = searchInput.value.trim();
+        selectedIndex = -1; 
+    
+        if (query.length > 0) {
+            appContainer.classList.add('is-searching');
+            let results;
+            if (searchMode === 'bookmarks') {
+                results = await customSearch(query, allBookmarks, visitCountCache, domainScores, bookmarkTags);
+            } else {
+                results = await searchHistory(query);
+            }
+            displayResults(results);
+    
+            if (bookmarksList.querySelector('.bookmark-item')) {
+                selectedIndex = 0;
+                updateSelection();
+            }
+        } else {
+            appContainer.classList.remove('is-searching');
+            bookmarksList.innerHTML = '';
+        }
+    }
+
     async function initialize() { const bookmarksData = await chrome.storage.local.get('cachedBookmarks'); if (bookmarksData.cachedBookmarks) { allBookmarks = bookmarksData.cachedBookmarks; } else { const bookmarkTree = await new Promise(resolve => chrome.bookmarks.getTree(resolve)); allBookmarks = flattenBookmarks(bookmarkTree); chrome.storage.local.set({ cachedBookmarks: allBookmarks }); } const storedData = await chrome.storage.local.get(['visitCountCache', 'domainScores', 'bookmarkTags']); visitCountCache = storedData.visitCountCache || {}; domainScores = storedData.domainScores || {}; bookmarkTags = storedData.bookmarkTags || {}; }
     async function trackDomainSelection(urlString) { try { const domain = new URL(urlString).hostname; domainScores[domain] = (domainScores[domain] || 0) + 1; await chrome.storage.local.set({ domainScores: domainScores }); } catch (e) { console.warn("Could not parse URL for domain tracking:", urlString); } }
 
