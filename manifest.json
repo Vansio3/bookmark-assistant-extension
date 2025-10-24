@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bookmark Assistant",
   "version": "1.0",
-  "description": "An enhanced Chrome extension to intelligently filter and display your bookmarks.",
+  "description": "Intelligently filter and display your bookmarks & history.",
   "permissions": [
     "bookmarks",
     "history",
