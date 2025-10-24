@@ -1,23 +1,32 @@
 /**
- * Flattens the Chrome bookmark tree into a simple array of bookmark objects.
- * @param {Array} bookmarkNodes The bookmark tree nodes from chrome.bookmarks.getTree.
- * @returns {Array} A flattened array of bookmark objects.
+ * Flattens the Chrome bookmark tree into a simple array of bookmark objects,
+ * including the full folder path for each bookmark.
+ * @param {Array} bookmarkTreeNodes The bookmark tree nodes from chrome.bookmarks.getTree.
+ * @returns {Array} A flattened array of bookmark objects with titles, URLs, and paths.
  */
-function flattenBookmarks(bookmarkNodes) {
+function flattenBookmarks(bookmarkTreeNodes) {
     const bookmarks = [];
-    const stack = [...bookmarkNodes];
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (node.url) {
-            bookmarks.push({
-                title: node.title,
-                url: node.url
-            });
-        }
-        if (node.children) {
-            stack.push(...node.children);
+
+    function traverse(nodes, path) {
+        for (const node of nodes) {
+            // If it's a bookmark (has a URL), add it to our list with its path.
+            if (node.url) {
+                bookmarks.push({
+                    title: node.title,
+                    url: node.url,
+                    path: path.join(' / ')
+                });
+            }
+            // If it's a folder (has children), traverse into it.
+            if (node.children) {
+                // Add the current folder's title to the path for its children.
+                const newPath = node.title ? [...path, node.title] : path;
+                traverse(node.children, newPath);
+            }
         }
     }
+    // Start with the top-level nodes and an empty path array.
+    traverse(bookmarkTreeNodes, []);
     return bookmarks;
 }
 

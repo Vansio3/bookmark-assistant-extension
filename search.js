@@ -31,28 +31,6 @@ function levenshteinDistance(s1, s2) {
 }
 
 /**
- * Flattens the Chrome bookmark tree into a simple array of bookmark objects.
- * (This function is unchanged)
- */
-export function flattenBookmarks(bookmarkNodes) {
-    const bookmarks = [];
-    const stack = [...bookmarkNodes];
-    while (stack.length > 0) {
-        const node = stack.pop();
-        if (node.url) {
-            bookmarks.push({
-                title: node.title,
-                url: node.url
-            });
-        }
-        if (node.children) {
-            stack.push(...node.children);
-        }
-    }
-    return bookmarks;
-}
-
-/**
  * Searches the user's browser history using the efficient chrome.history API.
  * Now includes the last visit time in the results.
  */
