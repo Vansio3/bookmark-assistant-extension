@@ -49,10 +49,25 @@ document.addEventListener('DOMContentLoaded', function () {
     function displayResults(results) {
         bookmarksList.innerHTML = '';
         const itemsToDisplay = results.filter(result => result && result.item);
+        const isInputEmpty = searchInput.value.trim().length === 0;
 
-        if (itemsToDisplay.length === 0 && searchInput.value.length > 0) {
-            bookmarksList.innerHTML = '<div class="no-results">No matches found.</div>';
+        // Handle the "No Results" case for active searches
+        if (itemsToDisplay.length === 0) {
+            if (!isInputEmpty) {
+                bookmarksList.innerHTML = '<div class="no-results">No matches found.</div>';
+            }
+            // If input is empty and no results, the list remains blank intentionally.
             return;
+        }
+
+        // If the input is empty and we have results, show the "main tag" message
+        if (isInputEmpty && searchMode === 'bookmarks' && itemsToDisplay.length > 0) {
+            const messageEl = document.createElement('div');
+            // Re-use the existing 'no-results' style for the message
+            messageEl.className = 'no-results';
+            messageEl.style.padding = '10px 16px';
+            messageEl.textContent = 'Showing bookmarks tagged #main';
+            bookmarksList.appendChild(messageEl);
         }
 
         const editIconSvg = `<svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M13.586 3.586a2 2 0 112.828 2.828l-1.06 1.06-2.829-2.828 1.061-1.06zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>`;
@@ -215,15 +230,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateSelection();
             }
         } else {
-            appContainer.classList.remove('is-searching');
-            bookmarksList.innerHTML = '';
+            // This is the empty state. Show #main tags or clear list.
+            if (searchMode === 'bookmarks') {
+                appContainer.classList.add('is-searching');
+                const mainTagResults = await customSearch('#main', allBookmarks, visitCountCache, domainScores, bookmarkTags);
+                displayResults(mainTagResults);
+                if (bookmarksList.querySelector('.bookmark-item')) {
+                    selectedIndex = 0;
+                    updateSelection();
+                }
+            } else {
+                // Empty state for history search
+                appContainer.classList.remove('is-searching');
+                bookmarksList.innerHTML = '';
+            }
         }
     }
 
     async function initialize() { const bookmarksData = await chrome.storage.local.get('cachedBookmarks'); if (bookmarksData.cachedBookmarks && bookmarksData.cachedBookmarks.length > 0 && bookmarksData.cachedBookmarks[0].hasOwnProperty('path')) { allBookmarks = bookmarksData.cachedBookmarks; } else { const bookmarkTree = await new Promise(resolve => chrome.bookmarks.getTree(resolve)); allBookmarks = flattenBookmarks(bookmarkTree); chrome.storage.local.set({ cachedBookmarks: allBookmarks }); } const storedData = await chrome.storage.local.get(['visitCountCache', 'domainScores', 'bookmarkTags']); visitCountCache = storedData.visitCountCache || {}; domainScores = storedData.domainScores || {}; bookmarkTags = storedData.bookmarkTags || {}; }
     async function trackDomainSelection(urlString) { try { const domain = new URL(urlString).hostname; domainScores[domain] = (domainScores[domain] || 0) + 1; await chrome.storage.local.set({ domainScores: domainScores }); } catch (e) { console.warn("Could not parse URL for domain tracking:", urlString); } }
 
-    initialize();
+    initialize().then(() => {
+        // Perform an initial search to populate the empty state view
+        executeSearch();
+    });
 
     searchInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
