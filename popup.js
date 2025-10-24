@@ -56,18 +56,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!isInputEmpty) {
                 bookmarksList.innerHTML = '<div class="no-results">No matches found.</div>';
             }
-            // If input is empty and no results, the list remains blank intentionally.
             return;
-        }
-
-        // If the input is empty and we have results, show the "main tag" message
-        if (isInputEmpty && searchMode === 'bookmarks' && itemsToDisplay.length > 0) {
-            const messageEl = document.createElement('div');
-            // Re-use the existing 'no-results' style for the message
-            messageEl.className = 'no-results';
-            messageEl.style.padding = '10px 16px';
-            messageEl.textContent = 'Showing bookmarks tagged #main';
-            bookmarksList.appendChild(messageEl);
         }
 
         const editIconSvg = `<svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M13.586 3.586a2 2 0 112.828 2.828l-1.06 1.06-2.829-2.828 1.061-1.06zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>`;
