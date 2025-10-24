@@ -85,10 +85,22 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
             const tags = bookmarkTags[bookmark.url] || [];
             if (tags.length === 0) return false;
 
-            // *** MODIFIED LOGIC: A bookmark must have a partially matching tag for EVERY filter tag. ***
-            // This changes the filter from an exact match to a partial match.
+            // A bookmark must have a matching tag for EVERY filter tag provided.
             return tagFilters.every(filterTag =>
-                tags.some(tag => tag.includes(filterTag))
+                // Check if any of the bookmark's tags match the current filter tag.
+                tags.some(tag => {
+                    // 1. Fast check
+                    if (tag.includes(filterTag)) {
+                        return true;
+                    }
+
+                    // 2. Fuzzy check
+                    const distance = levenshteinDistance(tag, filterTag);
+                    
+                    // Allow a small distance for typos. For longer tags, be more lenient.
+                    const threshold = tag.length > 5 ? 2 : 1;
+                    return distance <= threshold;
+                })
             );
         });
     }
