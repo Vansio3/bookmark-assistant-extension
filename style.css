@@ -212,7 +212,7 @@ html, body {
 }
 
 .edit-tags-btn:hover {
-    background-color: var(--card-hover);
+    background-color: rgba(var(--primary-accent-rgb), 0.25);
 }
 
 .edit-tags-btn svg {
@@ -220,10 +220,23 @@ html, body {
     height: 18px;
     fill: var(--subtle-text);
     display: block;
+    transition: fill 0.2s ease;
+}
+
+.edit-tags-btn:hover svg {
+    fill: var(--primary-accent);
 }
 
 .bookmark-item.selected .edit-tags-btn svg {
     fill: var(--text-color);
+}
+
+.bookmark-item.selected .edit-tags-btn:hover {
+    background-color: var(--primary-accent);
+}
+
+.bookmark-item.selected .edit-tags-btn:hover svg {
+    fill: var(--selected-text-color);
 }
 
 /* --- Tags Input Field --- */
