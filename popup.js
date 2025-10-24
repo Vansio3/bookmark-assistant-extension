@@ -1,4 +1,3 @@
-// Import our search logic from the new file
 import { customSearch, searchHistory } from './search.js';
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -57,19 +56,28 @@ document.addEventListener('DOMContentLoaded', function () {
             const bookmark = result.item;
             const tags = bookmarkTags[bookmark.url] || [];
 
-            // --- CORE FIX 1: Change element from 'a' to 'div' ---
             const bookmarkElement = document.createElement('div');
             bookmarkElement.className = 'bookmark-item';
-            bookmarkElement.dataset.url = bookmark.url; // Store URL for programmatic access
+            bookmarkElement.dataset.url = bookmark.url;
             bookmarkElement.title = bookmark.url;
 
-            // --- CORE FIX 2: Add a smart click handler to the new div ---
-            bookmarkElement.addEventListener('click', (e) => {
-                // Do not navigate if the user clicked an interactive element within the item.
+            bookmarkElement.addEventListener('mousedown', (e) => {
                 if (e.target.closest('.edit-tags-btn') || e.target.classList.contains('tags-input')) {
                     return;
                 }
-                navigateToUrl(bookmark.url);
+
+                const url = bookmark.url;
+                const isMiddleClick = e.button === 1;
+                const isCtrlClick = e.button === 0 && (e.ctrlKey || e.metaKey);
+
+                if (isMiddleClick || isCtrlClick) {
+                    e.preventDefault();
+                    trackDomainSelection(url);
+                    chrome.tabs.create({ url: url, active: false });
+                }
+                else if (e.button === 0) {
+                    navigateToUrl(url);
+                }
             });
 
             const favicon = document.createElement('img');
@@ -114,10 +122,8 @@ document.addEventListener('DOMContentLoaded', function () {
             editButton.innerHTML = editIconSvg;
             editButton.title = 'Edit Tags';
             
-            // The click handler for the button no longer needs to stop propagation
-            // because the parent handler already checks for it.
             editButton.addEventListener('click', (e) => {
-                e.preventDefault(); // Still useful to prevent any default button actions.
+                e.preventDefault();
                 const isEditing = tagsInput.style.display === 'block';
                 if (isEditing) {
                     const newTags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
@@ -212,7 +218,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     return; 
                 }
                 
-                // --- CORE FIX 3: Update keyboard navigation to use the dataset URL ---
                 const urlToOpen = selectedItem.dataset.url;
                 if (urlToOpen) {
                     navigateToUrl(urlToOpen);
