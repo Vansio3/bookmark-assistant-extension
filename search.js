@@ -105,13 +105,20 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
     if (tagFilters.length > 0) {
         workingBookmarks = allBookmarks.filter(bookmark => {
             const tags = bookmarkTags[bookmark.url] || [];
-            // Bookmark must have ALL tags specified in the filter
-            return tagFilters.every(filterTag => tags.includes(filterTag));
+            if (tags.length === 0) return false;
+
+            // *** MODIFIED LOGIC: A bookmark must have a partially matching tag for EVERY filter tag. ***
+            // This changes the filter from an exact match to a partial match.
+            return tagFilters.every(filterTag =>
+                tags.some(tag => tag.includes(filterTag))
+            );
         });
     }
 
     // --- Pass 1: Quick text-based search and scoring ---
     const preliminaryResults = [];
+    const isTagOnlySearch = queryWords.length === 0 && tagFilters.length > 0;
+
     for (const bookmark of workingBookmarks) {
         const lowerCaseTitle = bookmark.title.toLowerCase();
         const bookmarkUrl = bookmark.url.toLowerCase();
@@ -150,6 +157,10 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
             if (distance <= Math.floor(queryWords.join(' ').length / 4)) {
                 score += 20 - distance * 5;
             }
+        }
+
+        if (isTagOnlySearch) {
+            score = weights.tagMatch;
         }
 
         if (score > 0) {

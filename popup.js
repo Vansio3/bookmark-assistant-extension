@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function () {
             historyToggle.textContent = 'B';
             historyToggle.title = 'Search Bookmarks';
             historyToggle.classList.remove('active');
-            searchInput.placeholder = 'Search bookmarks or tags...';
+            searchInput.placeholder = 'Search bookmarks (#tag to filter)...';
         }
         searchInput.focus();
         executeSearch();
