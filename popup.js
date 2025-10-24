@@ -62,16 +62,14 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // 2. Add listener for typing in the search bar
-    searchInput.addEventListener('input', function () {
+    searchInput.addEventListener('input', async function () {
         const query = this.value.trim();
         selectedIndex = -1;
         if (query.length > 0) {
-            // NEW: Add class to expand the view
             appContainer.classList.add('is-searching');
-            const results = customSearch(query, allBookmarks);
+            const results = await customSearch(query, allBookmarks); // Await the async search
             displayResults(results);
         } else {
-            // NEW: Remove class to collapse the view
             appContainer.classList.remove('is-searching');
             bookmarksList.innerHTML = '';
         }

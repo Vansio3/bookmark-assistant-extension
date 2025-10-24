@@ -57,67 +57,74 @@ export function flattenBookmarks(bookmarkNodes) {
 
 /**
  * Performs an advanced fuzzy search on a bookmarks list with a sophisticated scoring system.
- * It now searches both title and URL with different weights.
+ * It now searches both title and URL with different weights and prioritizes frequently visited sites.
  * @param {string} query The search query.
  * @param {Array} allBookmarks The list of all bookmarks to search through.
- * @returns {Array} A sorted array of matching bookmark objects.
+ * @returns {Promise<Array>} A sorted array of matching bookmark objects.
  */
-export function customSearch(query, allBookmarks) {
+export async function customSearch(query, allBookmarks) {
     const lowerCaseQuery = query.toLowerCase();
     const queryWords = lowerCaseQuery.split(' ').filter(w => w);
     const results = [];
+    const historyPromises = []; // To hold all our history search promises
 
     for (const bookmark of allBookmarks) {
         const lowerCaseTitle = bookmark.title.toLowerCase();
-        const lowerCaseUrl = bookmark.url.toLowerCase(); // NEW: Get the URL for searching
+        const lowerCaseUrl = bookmark.url.toLowerCase();
         let score = 0;
-        const matchedWords = new Set(); // Keep track of unique words found
+        const matchedWords = new Set();
 
-        // 1. Check for matches for each word in the query
         for (const word of queryWords) {
             const inTitle = lowerCaseTitle.includes(word);
             const inUrl = lowerCaseUrl.includes(word);
 
             if (inTitle) {
-                score += 10; // High base score for title inclusion
-                // Boost score if it's a "starts with" match in the title
+                score += 10;
                 if (lowerCaseTitle.split(' ').some(titleWord => titleWord.startsWith(word))) {
                     score += 15;
                 }
                 matchedWords.add(word);
             } else if (inUrl) {
-                score += 3; // Low base score for URL inclusion
+                score += 3;
                 matchedWords.add(word);
             }
         }
 
-        // 2. If not all words were found, try fuzzy matching on the title
         if (matchedWords.size < queryWords.length) {
             const distance = levenshteinDistance(lowerCaseQuery, lowerCaseTitle.substring(0, lowerCaseQuery.length));
-            // Allow for typos (e.g., 1 typo for every 4 characters)
             if (distance <= Math.floor(lowerCaseQuery.length / 4)) {
-                score += 20 - distance * 5; // Higher score for closer matches
+                score += 20 - distance * 5;
             }
         }
 
-        // 3. Bonus for shorter titles (more specific matches)
         if (score > 0) {
             score += 5 / lowerCaseTitle.length;
         }
 
-        // 4. Bonus for matching all query words (whether in title or URL)
         if (matchedWords.size === queryWords.length && queryWords.length > 1) {
-            score *= 1.5; // Significant boost
+            score *= 1.5;
         }
 
         if (score > 0) {
-            results.push({ item: bookmark, score: score });
+            // Create a promise to get the visit count and push it to an array
+            const historyPromise = new Promise(resolve => {
+                chrome.history.getVisits({ url: bookmark.url }, (visitItems) => {
+                    if (visitItems && visitItems.length > 0) {
+                        // Using a logarithmic scale to give a boost that diminishes as the visit count gets very high
+                        score += Math.log(visitItems.length + 1) * 5;
+                    }
+                    results.push({ item: bookmark, score: score });
+                    resolve();
+                });
+            });
+            historyPromises.push(historyPromise);
         }
     }
+    
+    // Wait for all the history lookups to complete
+    await Promise.all(historyPromises);
 
-    // Sort results by score in descending order
     results.sort((a, b) => b.score - a.score);
 
-    // Limit to a reasonable number of results to keep the UI clean
     return results.slice(0, 50);
 }

@@ -4,7 +4,8 @@
   "version": "1.0",
   "description": "An enhanced Chrome extension to intelligently filter and display your bookmarks.",
   "permissions": [
-    "bookmarks"
+    "bookmarks",
+    "history"
   ],
   "host_permissions": [
     "https://www.google.com/s2/favicons*"
@@ -30,7 +31,6 @@
       "description": "Open Bookmark Filter"
     }
   },
-
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://www.google.com https://*.gstatic.com;"
   }
