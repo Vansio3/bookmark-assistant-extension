@@ -1,9 +1,6 @@
 /**
  * Calculates the Levenshtein distance between two strings.
- * This is a measure of the difference between two sequences.
- * @param {string} s1 The first string.
- * @param {string} s2 The second string.
- * @returns {number} The Levenshtein distance.
+ * (This function is unchanged)
  */
 function levenshteinDistance(s1, s2) {
     s1 = s1.toLowerCase();
@@ -57,25 +54,21 @@ export function flattenBookmarks(bookmarkNodes) {
 
 /**
  * Searches the user's browser history using the efficient chrome.history API.
- * @param {string} query The search query.
- * @returns {Promise<Array>} A sorted array of matching history objects, formatted for display.
+ * (This function is unchanged)
  */
 export async function searchHistory(query) {
     return new Promise(resolve => {
         chrome.history.search({
             text: query,
-            maxResults: 50, // Limit results for performance and relevance
-            startTime: 0 // Search all available history
+            maxResults: 50,
+            startTime: 0
         }, (historyItems) => {
-            // The display function expects an array of objects, where each object has an 'item' property.
-            const formattedResults = historyItems.map(historyItem => {
-                return {
-                    item: {
-                        title: historyItem.title || historyItem.url,
-                        url: historyItem.url
-                    }
-                };
-            });
+            const formattedResults = historyItems.map(historyItem => ({
+                item: {
+                    title: historyItem.title || historyItem.url,
+                    url: historyItem.url
+                }
+            }));
             resolve(formattedResults);
         });
     });
@@ -83,40 +76,37 @@ export async function searchHistory(query) {
 
 
 /**
- * Performs an advanced fuzzy search on a bookmarks list with a sophisticated scoring system.
- * It now searches both title and URL with different weights and prioritizes frequently visited sites.
+ * Performs an OPTIMIZED fuzzy search on bookmarks using a two-pass system.
+ * It first finds the best matches by text, then enriches a small subset with visit counts.
  * @param {string} query The search query.
  * @param {Array} allBookmarks The list of all bookmarks to search through.
+ * @param {Object} visitCountCache A cache object to read/write visit counts.
  * @returns {Promise<Array>} A sorted array of matching bookmark objects.
  */
-export async function customSearch(query, allBookmarks) {
+export async function customSearch(query, allBookmarks, visitCountCache) {
     const lowerCaseQuery = query.toLowerCase();
     const queryWords = lowerCaseQuery.split(' ').filter(w => w);
-    const results = [];
-    const historyPromises = []; // To hold all our history search promises
-
+    
+    // --- Pass 1: Quick text-based search and scoring ---
+    const preliminaryResults = [];
     for (const bookmark of allBookmarks) {
         const lowerCaseTitle = bookmark.title.toLowerCase();
-        const lowerCaseUrl = bookmark.url.toLowerCase();
         let score = 0;
         const matchedWords = new Set();
 
         for (const word of queryWords) {
-            const inTitle = lowerCaseTitle.includes(word);
-            const inUrl = lowerCaseUrl.includes(word);
-
-            if (inTitle) {
+            if (lowerCaseTitle.includes(word)) {
                 score += 10;
                 if (lowerCaseTitle.split(' ').some(titleWord => titleWord.startsWith(word))) {
                     score += 15;
                 }
                 matchedWords.add(word);
-            } else if (inUrl) {
+            } else if (bookmark.url.toLowerCase().includes(word)) {
                 score += 3;
                 matchedWords.add(word);
             }
         }
-
+        
         if (matchedWords.size < queryWords.length) {
             const distance = levenshteinDistance(lowerCaseQuery, lowerCaseTitle.substring(0, lowerCaseQuery.length));
             if (distance <= Math.floor(lowerCaseQuery.length / 4)) {
@@ -126,32 +116,51 @@ export async function customSearch(query, allBookmarks) {
 
         if (score > 0) {
             score += 5 / lowerCaseTitle.length;
-        }
-
-        if (matchedWords.size === queryWords.length && queryWords.length > 1) {
-            score *= 1.5;
-        }
-
-        if (score > 0) {
-            // Create a promise to get the visit count and push it to an array
-            const historyPromise = new Promise(resolve => {
-                chrome.history.getVisits({ url: bookmark.url }, (visitItems) => {
-                    if (visitItems && visitItems.length > 0) {
-                        // Using a logarithmic scale to give a boost that diminishes as the visit count gets very high
-                        score += Math.log(visitItems.length + 1) * 5;
-                    }
-                    results.push({ item: bookmark, score: score });
-                    resolve();
-                });
-            });
-            historyPromises.push(historyPromise);
+            if (matchedWords.size === queryWords.length && queryWords.length > 1) {
+                score *= 1.5;
+            }
+            preliminaryResults.push({ item: bookmark, score });
         }
     }
+
+    // Sort the preliminary results to find the best candidates
+    preliminaryResults.sort((a, b) => b.score - a.score);
+
+    // --- Pass 2: Enrich the top N results with expensive history lookups ---
+    const topResults = preliminaryResults.slice(0, 25); // Only enhance the top 25
+    const historyPromises = [];
+    const CACHE_TTL = 1000 * 60 * 60 * 24; // Cache for 24 hours
+
+    for (const result of topResults) {
+        const url = result.item.url;
+        
+        // Caching Logic
+        const cached = visitCountCache[url];
+        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+            result.score += Math.log(cached.visitCount + 1) * 5;
+            continue; // Use cached value and skip the API call
+        }
+
+        // If not in cache or expired, fetch it
+        const historyPromise = new Promise(resolve => {
+            chrome.history.getVisits({ url: url }, (visitItems) => {
+                const visitCount = visitItems ? visitItems.length : 0;
+                if (visitCount > 0) {
+                    result.score += Math.log(visitCount + 1) * 5;
+                    // Update cache
+                    visitCountCache[url] = { visitCount: visitCount, timestamp: Date.now() };
+                }
+                resolve();
+            });
+        });
+        historyPromises.push(historyPromise);
+    }
     
-    // Wait for all the history lookups to complete
+    // Wait for ONLY the necessary history lookups to complete
     await Promise.all(historyPromises);
 
-    results.sort((a, b) => b.score - a.score);
+    // Final sort after enrichment
+    topResults.sort((a, b) => b.score - a.score);
 
-    return results.slice(0, 50);
+    return topResults;
 }

@@ -9,7 +9,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let allBookmarks = [];
     let selectedIndex = -1;
-    let searchMode = 'bookmarks'; // 'bookmarks' or 'history'
+    let searchMode = 'bookmarks';
+    let visitCountCache = {}; // In-memory cache for visit counts
+    let debounceTimer;
 
     /**
      * Renders the search results in the bookmarksList container.
@@ -81,12 +83,12 @@ document.addEventListener('DOMContentLoaded', function () {
      */
     async function executeSearch() {
         const query = searchInput.value.trim();
-        selectedIndex = -1; // Reset selection on new search
+        selectedIndex = -1;
         if (query.length > 0) {
             appContainer.classList.add('is-searching');
             let results;
             if (searchMode === 'bookmarks') {
-                results = await customSearch(query, allBookmarks);
+                results = await customSearch(query, allBookmarks, visitCountCache);
             } else {
                 results = await searchHistory(query);
             }
@@ -100,28 +102,35 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Main Execution ---
 
     /**
-     * Initializes the popup by loading bookmarks from cache or building it if it doesn't exist.
+     * Initializes the popup by loading bookmarks and the visit count cache.
      */
     async function initialize() {
-        const data = await chrome.storage.local.get('cachedBookmarks');
-        if (data.cachedBookmarks) {
-            allBookmarks = data.cachedBookmarks;
+        // Load bookmarks from cache
+        const bookmarksData = await chrome.storage.local.get('cachedBookmarks');
+        if (bookmarksData.cachedBookmarks) {
+            allBookmarks = bookmarksData.cachedBookmarks;
         } else {
-            // Fallback in case the cache is empty on the very first run
             console.log("Cache miss, building bookmarks from tree for the first time.");
-            // Promisify the callback-based chrome.bookmarks.getTree API
             const bookmarkTree = await new Promise(resolve => chrome.bookmarks.getTree(resolve));
             allBookmarks = flattenBookmarks(bookmarkTree);
-            // Don't wait for this to complete to show the UI
             chrome.storage.local.set({ cachedBookmarks: allBookmarks });
+        }
+
+        // Load visit count cache from storage
+        const cacheData = await chrome.storage.local.get('visitCountCache');
+        if (cacheData.visitCountCache) {
+            visitCountCache = cacheData.visitCountCache;
         }
     }
 
-    // 1. Load bookmarks from cache on startup
+    // 1. Initialize data on startup
     initialize();
 
-    // 2. Add listener for typing in the search bar
-    searchInput.addEventListener('input', executeSearch);
+    // 2. Add DEBOUNCED listener for typing in the search bar
+    searchInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(executeSearch, 150); // Wait 150ms after user stops typing
+    });
     
     // 3. Add listener for the history toggle button
     historyToggle.addEventListener('click', function() {
@@ -138,11 +147,11 @@ document.addEventListener('DOMContentLoaded', function () {
             historyToggle.classList.remove('active');
             searchInput.placeholder = 'Search bookmarks...';
         }
-        searchInput.focus(); // Re-focus the input field
-        executeSearch(); // Re-run the search in the new mode
+        searchInput.focus();
+        executeSearch();
     });
 
-    // 4. Add listener for keyboard navigation
+    // 4. Add listener for keyboard navigation (unchanged)
     document.addEventListener('keydown', function (e) {
         const items = bookmarksList.querySelectorAll('.bookmark-item');
         if (items.length === 0) return;
@@ -158,10 +167,17 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (selectedIndex >= 0 && selectedIndex < items.length) {
+                // Before closing, save the updated cache
+                chrome.storage.local.set({ visitCountCache });
                 const urlToOpen = items[selectedIndex].href;
                 chrome.tabs.create({ url: urlToOpen });
-                window.close(); // Close the popup after opening a tab
+                window.close();
             }
         }
+    });
+
+    // Save the potentially updated cache when the popup is closed
+    window.addEventListener('beforeunload', () => {
+        chrome.storage.local.set({ visitCountCache });
     });
 });
