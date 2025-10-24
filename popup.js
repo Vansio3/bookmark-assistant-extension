@@ -35,6 +35,11 @@ document.addEventListener('DOMContentLoaded', function () {
      * Centralized function to handle navigation.
      */
     function navigateToUrl(url) {
+        if (!url.startsWith('http:') && !url.startsWith('https:') && !url.startsWith('chrome:')) {
+            console.warn(`Blocked navigation to potentially unsafe URL: ${url}`);
+            return;
+        }
+        
         trackDomainSelection(url);
         chrome.storage.local.set({ visitCountCache });
         chrome.tabs.create({ url: url });
