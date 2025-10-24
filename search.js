@@ -77,13 +77,22 @@ export async function searchHistory(query) {
 
 /**
  * Performs an OPTIMIZED fuzzy search on bookmarks using a two-pass system.
- * It first finds the best matches by text, then enriches a small subset with visit counts.
+ * It incorporates configurable weights, recency, and domain boosting.
  * @param {string} query The search query.
  * @param {Array} allBookmarks The list of all bookmarks to search through.
  * @param {Object} visitCountCache A cache object to read/write visit counts.
+ * @param {Object} domainScores A map of domain visit counts for boosting.
  * @returns {Promise<Array>} A sorted array of matching bookmark objects.
  */
-export async function customSearch(query, allBookmarks, visitCountCache) {
+export async function customSearch(query, allBookmarks, visitCountCache, domainScores) {
+    // --- Load configurable weights from storage with defaults ---
+    const { weights } = await chrome.storage.sync.get({
+        weights: {
+            titleMatch: 10, startsWithBonus: 15, urlMatch: 3, allWordsBonus: 1.5,
+            visitCount: 5, recency: 10
+        }
+    });
+
     const lowerCaseQuery = query.toLowerCase();
     const queryWords = lowerCaseQuery.split(' ').filter(w => w);
     
@@ -96,13 +105,13 @@ export async function customSearch(query, allBookmarks, visitCountCache) {
 
         for (const word of queryWords) {
             if (lowerCaseTitle.includes(word)) {
-                score += 10;
+                score += weights.titleMatch;
                 if (lowerCaseTitle.split(' ').some(titleWord => titleWord.startsWith(word))) {
-                    score += 15;
+                    score += weights.startsWithBonus;
                 }
                 matchedWords.add(word);
             } else if (bookmark.url.toLowerCase().includes(word)) {
-                score += 3;
+                score += weights.urlMatch;
                 matchedWords.add(word);
             }
         }
@@ -110,45 +119,60 @@ export async function customSearch(query, allBookmarks, visitCountCache) {
         if (matchedWords.size < queryWords.length) {
             const distance = levenshteinDistance(lowerCaseQuery, lowerCaseTitle.substring(0, lowerCaseQuery.length));
             if (distance <= Math.floor(lowerCaseQuery.length / 4)) {
-                score += 20 - distance * 5;
+                score += 20 - distance * 5; // Using a static Levenshtein bonus for now
             }
         }
 
         if (score > 0) {
-            score += 5 / lowerCaseTitle.length;
             if (matchedWords.size === queryWords.length && queryWords.length > 1) {
-                score *= 1.5;
+                score *= weights.allWordsBonus;
             }
+
+            // --- Domain-Specific Boosting ---
+            try {
+                const domain = new URL(bookmark.url).hostname;
+                if (domainScores[domain]) {
+                    // Apply a gentle, logarithmic boost based on how many times you've picked this domain
+                    score *= (1 + Math.log1p(domainScores[domain]) * 0.1);
+                }
+            } catch (e) { /* Invalid URL, ignore */ }
+            
             preliminaryResults.push({ item: bookmark, score });
         }
     }
 
-    // Sort the preliminary results to find the best candidates
     preliminaryResults.sort((a, b) => b.score - a.score);
 
-    // --- Pass 2: Enrich the top N results with expensive history lookups ---
-    const topResults = preliminaryResults.slice(0, 25); // Only enhance the top 25
+    // --- Pass 2: Enrich the top N results with visit counts and recency ---
+    const topResults = preliminaryResults.slice(0, 25);
     const historyPromises = [];
-    const CACHE_TTL = 1000 * 60 * 60 * 24; // Cache for 24 hours
+    const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
 
     for (const result of topResults) {
         const url = result.item.url;
-        
-        // Caching Logic
         const cached = visitCountCache[url];
+
         if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-            result.score += Math.log(cached.visitCount + 1) * 5;
-            continue; // Use cached value and skip the API call
+            result.score += Math.log(cached.visitCount + 1) * weights.visitCount;
+            if (cached.lastVisit) {
+                const daysAgo = (Date.now() - cached.lastVisit) / (1000 * 60 * 60 * 24);
+                result.score += Math.max(0, weights.recency - daysAgo); // Decaying bonus
+            }
+            continue;
         }
 
-        // If not in cache or expired, fetch it
         const historyPromise = new Promise(resolve => {
             chrome.history.getVisits({ url: url }, (visitItems) => {
                 const visitCount = visitItems ? visitItems.length : 0;
                 if (visitCount > 0) {
-                    result.score += Math.log(visitCount + 1) * 5;
-                    // Update cache
-                    visitCountCache[url] = { visitCount: visitCount, timestamp: Date.now() };
+                    result.score += Math.log(visitCount + 1) * weights.visitCount;
+                    
+                    // --- Recency Score Calculation ---
+                    const lastVisit = visitItems[0].visitTime; // API returns in reverse chronological order
+                    const daysAgo = (Date.now() - lastVisit) / (1000 * 60 * 60 * 24);
+                    result.score += Math.max(0, weights.recency - daysAgo); // Decaying bonus
+
+                    visitCountCache[url] = { visitCount, lastVisit, timestamp: Date.now() };
                 }
                 resolve();
             });
@@ -156,11 +180,7 @@ export async function customSearch(query, allBookmarks, visitCountCache) {
         historyPromises.push(historyPromise);
     }
     
-    // Wait for ONLY the necessary history lookups to complete
     await Promise.all(historyPromises);
-
-    // Final sort after enrichment
     topResults.sort((a, b) => b.score - a.score);
-
     return topResults;
 }

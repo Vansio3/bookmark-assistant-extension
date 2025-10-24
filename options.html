@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bookmark Assistant Options</title>
+    <style>
+        :root {
+            --primary-accent: #FFBF00; --background-color: #121212; --card-bg: #1E1E1E;
+            --border-color: #3D3D3D; --text-color: #EAEAEA; --subtle-text: #888888;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--background-color); color: var(--text-color);
+            padding: 1.5em; max-width: 550px; margin: 2em auto;
+        }
+        h1 { color: var(--primary-accent); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5em; }
+        .option-group { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5em; margin-bottom: 2em; }
+        .option-group h2 { font-size: 1.1em; color: var(--text-color); margin-top: 0; }
+        .option { margin-bottom: 1.25em; }
+        .option-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
+        label { font-weight: bold; }
+        .description { font-size: 0.85em; color: var(--subtle-text); padding-left: 2px; }
+        input[type="number"] {
+            width: 80px; background-color: #121212; color: var(--text-color);
+            border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; text-align: center;
+        }
+        .controls { display: flex; align-items: center; gap: 1em; }
+        button {
+            background-color: var(--primary-accent); color: var(--background-color); border: none;
+            padding: 10px 20px; font-size: 1em; font-weight: bold; border-radius: 5px; cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #ffcf40; }
+        button.secondary { background-color: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); }
+        button.secondary:hover { border-color: var(--primary-accent); }
+        #status { color: var(--primary-accent); font-style: italic; opacity: 0; transition: opacity 0.3s; }
+        #status.visible { opacity: 1; }
+    </style>
+</head>
+<body>
+    <h1>Search Algorithm Settings</h1>
+
+    <div class="option-group">
+        <h2>Text Matching Scores</h2>
+        <div class="option">
+            <div class="option-header">
+                <label for="titleMatch">Title Word Match</label>
+                <input type="number" id="titleMatch" min="0" step="1">
+            </div>
+            <p class="description">The base score added when a search word is found anywhere in the bookmark's title.</p>
+        </div>
+        <div class="option">
+            <div class="option-header">
+                <label for="startsWithBonus">Title "Starts With" Bonus</label>
+                <input type="number" id="startsWithBonus" min="0" step="1">
+            </div>
+            <p class="description">An additional bonus if a word in the title begins with a search word. Promotes more direct matches.</p>
+        </div>
+        <div class="option">
+            <div class="option-header">
+                <label for="urlMatch">URL Word Match</label>
+                <input type="number" id="urlMatch" min="0" step="1">
+            </div>
+            <p class="description">The score added when a search word is found in the bookmark's URL. Lower than title matches by default.</p>
+        </div>
+         <div class="option">
+            <div class="option-header">
+                <label for="allWordsBonus">All Words Matched Multiplier</label>
+                <input type="number" id="allWordsBonus" min="0" step="0.1">
+            </div>
+            <p class="description">A multiplier that boosts the total score if every word in your search query is found. (e.g., 1.5 = 50% boost).</p>
+        </div>
+    </div>
+
+    <div class="option-group">
+        <h2>History & Usage Bonuses</h2>
+        <div class="option">
+            <div class="option-header">
+                <label for="visitCount">Visit Count Bonus</label>
+                <input type="number" id="visitCount" min="0" step="0.1">
+            </div>
+            <p class="description">A multiplier for how frequently you have visited a bookmark's URL. Uses a logarithmic scale to prevent huge numbers from having too much influence.</p>
+        </div>
+        <div class="option">
+            <div class="option-header">
+                <label for="recency">Recency Bonus</label>
+                <input type="number" id="recency" min="0" step="1">
+            </div>
+            <p class="description">The maximum score bonus a bookmark can receive for being visited recently. This bonus decreases to zero over several days.</p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="save">Save Settings</button>
+        <button id="reset" class="secondary">Reset to Defaults</button>
+        <span id="status"></span>
+    </div>
+    
+    <div class="option-group" style="margin-top: 2em;">
+        <h2>User Data</h2>
+         <div class="option">
+            <div class="option-header">
+                <label>Domain-Specific Boosting</label>
+                 <button id="clearDomains" class="secondary">Clear Data</button>
+            </div>
+            <p class="description">The extension learns which websites you select most often and boosts their ranking. This action will reset that learning history.</p>
+        </div>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>

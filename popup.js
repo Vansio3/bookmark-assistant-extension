@@ -11,7 +11,22 @@ document.addEventListener('DOMContentLoaded', function () {
     let selectedIndex = -1;
     let searchMode = 'bookmarks';
     let visitCountCache = {}; // In-memory cache for visit counts
+    let domainScores = {}; // In-memory store for domain preferences
     let debounceTimer;
+
+    /**
+     * Tracks the selection of a domain to boost its score in future searches.
+     */
+    async function trackDomainSelection(urlString) {
+        try {
+            const domain = new URL(urlString).hostname;
+            domainScores[domain] = (domainScores[domain] || 0) + 1;
+            // Persist this to local storage so it's remembered across sessions
+            await chrome.storage.local.set({ domainScores: domainScores });
+        } catch (e) {
+            console.warn("Could not parse URL for domain tracking:", urlString);
+        }
+    }
 
     /**
      * Renders the search results in the bookmarksList container.
@@ -29,6 +44,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 bookmarkElement.className = 'bookmark-item';
                 bookmarkElement.target = '_blank';
                 bookmarkElement.title = bookmark.url;
+
+                // Track clicks for domain boosting
+                bookmarkElement.addEventListener('mousedown', () => trackDomainSelection(bookmark.url));
 
                 const favicon = document.createElement('img');
                 favicon.src = `https://www.google.com/s2/favicons?sz=16&domain_url=${encodeURIComponent(bookmark.url)}`;
@@ -88,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
             appContainer.classList.add('is-searching');
             let results;
             if (searchMode === 'bookmarks') {
-                results = await customSearch(query, allBookmarks, visitCountCache);
+                results = await customSearch(query, allBookmarks, visitCountCache, domainScores);
             } else {
                 results = await searchHistory(query);
             }
@@ -102,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Main Execution ---
 
     /**
-     * Initializes the popup by loading bookmarks and the visit count cache.
+     * Initializes the popup by loading all necessary data from storage.
      */
     async function initialize() {
         // Load bookmarks from cache
@@ -110,29 +128,25 @@ document.addEventListener('DOMContentLoaded', function () {
         if (bookmarksData.cachedBookmarks) {
             allBookmarks = bookmarksData.cachedBookmarks;
         } else {
-            console.log("Cache miss, building bookmarks from tree for the first time.");
+            console.log("Cache miss, building bookmarks from tree.");
             const bookmarkTree = await new Promise(resolve => chrome.bookmarks.getTree(resolve));
             allBookmarks = flattenBookmarks(bookmarkTree);
             chrome.storage.local.set({ cachedBookmarks: allBookmarks });
         }
 
-        // Load visit count cache from storage
-        const cacheData = await chrome.storage.local.get('visitCountCache');
-        if (cacheData.visitCountCache) {
-            visitCountCache = cacheData.visitCountCache;
-        }
+        // Load visit count cache and domain scores from storage
+        const storedData = await chrome.storage.local.get(['visitCountCache', 'domainScores']);
+        visitCountCache = storedData.visitCountCache || {};
+        domainScores = storedData.domainScores || {};
     }
 
-    // 1. Initialize data on startup
     initialize();
 
-    // 2. Add DEBOUNCED listener for typing in the search bar
     searchInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(executeSearch, 150); // Wait 150ms after user stops typing
+        debounceTimer = setTimeout(executeSearch, 150);
     });
     
-    // 3. Add listener for the history toggle button
     historyToggle.addEventListener('click', function() {
         if (searchMode === 'bookmarks') {
             searchMode = 'history';
@@ -151,7 +165,6 @@ document.addEventListener('DOMContentLoaded', function () {
         executeSearch();
     });
 
-    // 4. Add listener for keyboard navigation (unchanged)
     document.addEventListener('keydown', function (e) {
         const items = bookmarksList.querySelectorAll('.bookmark-item');
         if (items.length === 0) return;
@@ -167,16 +180,15 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (selectedIndex >= 0 && selectedIndex < items.length) {
-                // Before closing, save the updated cache
-                chrome.storage.local.set({ visitCountCache });
                 const urlToOpen = items[selectedIndex].href;
+                trackDomainSelection(urlToOpen); // Track domain on selection
+                chrome.storage.local.set({ visitCountCache }); // Save cache before opening
                 chrome.tabs.create({ url: urlToOpen });
                 window.close();
             }
         }
     });
 
-    // Save the potentially updated cache when the popup is closed
     window.addEventListener('beforeunload', () => {
         chrome.storage.local.set({ visitCountCache });
     });

@@ -35,6 +35,10 @@
       "description": "Open Bookmark Filter"
     }
   },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://www.google.com/s2/ https://*.gstatic.com;"
   }
