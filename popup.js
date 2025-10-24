@@ -59,8 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         itemsToDisplay.forEach((result) => {
             const bookmark = result.item;
-            const tags = bookmarkTags[bookmark.url] || [];
-
+            
             const bookmarkElement = document.createElement('div');
             bookmarkElement.className = 'bookmark-item';
             bookmarkElement.dataset.url = bookmark.url;
@@ -98,75 +97,90 @@ document.addEventListener('DOMContentLoaded', function () {
             title.className = 'title';
             content.appendChild(title);
 
-            const tagsContainer = document.createElement('div');
-            tagsContainer.className = 'tags-container';
-            
-            const tagsInput = document.createElement('input');
-            tagsInput.type = 'text';
-            tagsInput.className = 'tags-input';
-            tagsInput.placeholder = 'Add tags, comma-separated...';
-            tagsInput.style.display = 'none';
-            tagsInput.value = tags.join(', ');
-
-            tagsInput.addEventListener('mousedown', (e) => {
-                e.stopPropagation();
-            });
-
-            const renderTags = (currentTags) => {
-                tagsContainer.innerHTML = '';
-                currentTags.forEach(tag => {
-                    const tagPill = document.createElement('span');
-                    tagPill.className = 'tag-pill';
-                    tagPill.textContent = tag;
-                    tagsContainer.appendChild(tagPill);
-                });
-            };
-            renderTags(tags);
-            content.appendChild(tagsContainer);
-            content.appendChild(tagsInput);
-            bookmarkElement.appendChild(content);
-
-            const editButton = document.createElement('button');
-            editButton.className = 'edit-tags-btn';
-            editButton.innerHTML = editIconSvg;
-            editButton.title = 'Edit Tags';
-            
-            editButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                const isEditing = tagsInput.style.display === 'block';
-                if (isEditing) {
-                    const newTags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
-                    saveTagsForUrl(bookmark.url, newTags);
-                    renderTags(newTags);
-                    tagsInput.style.display = 'none';
-                    tagsContainer.style.display = 'flex';
-                    activeTagInput = null;
-                } else {
-                    closeActiveTagInput();
-                    tagsInput.style.display = 'block';
-                    tagsContainer.style.display = 'none';
-                    tagsInput.focus();
-                    activeTagInput = {
-                        element: tagsInput,
-                        save: () => editButton.click()
-                    };
+            if (searchMode === 'history') {
+                const historyTime = document.createElement('div');
+                historyTime.className = 'history-time';
+                if (bookmark.lastVisitTime) {
+                    const visitDate = new Date(bookmark.lastVisitTime);
+                    historyTime.textContent = visitDate.toLocaleString(undefined, {
+                        year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+                    });
                 }
-            });
-            bookmarkElement.appendChild(editButton);
+                content.appendChild(historyTime);
+                bookmarkElement.appendChild(content);
 
-            tagsInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
+            } else {
+                const tags = bookmarkTags[bookmark.url] || [];
+                const tagsContainer = document.createElement('div');
+                tagsContainer.className = 'tags-container';
+                
+                const tagsInput = document.createElement('input');
+                tagsInput.type = 'text';
+                tagsInput.className = 'tags-input';
+                tagsInput.placeholder = 'Add tags, comma-separated...';
+                tagsInput.style.display = 'none';
+                tagsInput.value = tags.join(', ');
+
+                tagsInput.addEventListener('mousedown', (e) => {
                     e.stopPropagation();
-                    editButton.click();
-                } else if (e.key === 'Escape') {
+                });
+
+                const renderTags = (currentTags) => {
+                    tagsContainer.innerHTML = '';
+                    currentTags.forEach(tag => {
+                        const tagPill = document.createElement('span');
+                        tagPill.className = 'tag-pill';
+                        tagPill.textContent = tag;
+                        tagsContainer.appendChild(tagPill);
+                    });
+                };
+                renderTags(tags);
+                content.appendChild(tagsContainer);
+                content.appendChild(tagsInput);
+                bookmarkElement.appendChild(content);
+
+                const editButton = document.createElement('button');
+                editButton.className = 'edit-tags-btn';
+                editButton.innerHTML = editIconSvg;
+                editButton.title = 'Edit Tags';
+                
+                editButton.addEventListener('click', (e) => {
                     e.preventDefault();
-                    tagsInput.value = tags.join(', ');
-                    tagsInput.style.display = 'none';
-                    tagsContainer.style.display = 'flex';
-                    activeTagInput = null;
-                }
-            });
+                    const isEditing = tagsInput.style.display === 'block';
+                    if (isEditing) {
+                        const newTags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
+                        saveTagsForUrl(bookmark.url, newTags);
+                        renderTags(newTags);
+                        tagsInput.style.display = 'none';
+                        tagsContainer.style.display = 'flex';
+                        activeTagInput = null;
+                    } else {
+                        closeActiveTagInput();
+                        tagsInput.style.display = 'block';
+                        tagsContainer.style.display = 'none';
+                        tagsInput.focus();
+                        activeTagInput = {
+                            element: tagsInput,
+                            save: () => editButton.click()
+                        };
+                    }
+                });
+                bookmarkElement.appendChild(editButton);
+
+                tagsInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        editButton.click();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        tagsInput.value = tags.join(', ');
+                        tagsInput.style.display = 'none';
+                        tagsContainer.style.display = 'flex';
+                        activeTagInput = null;
+                    }
+                });
+            }
 
             bookmarksList.appendChild(bookmarkElement);
         });
@@ -246,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             if (selectedIndex >= 0 && selectedIndex < items.length) {
                 const selectedItem = items[selectedIndex];
-                const isEditingTags = selectedItem.querySelector('.tags-input').style.display === 'block';
+                const isEditingTags = selectedItem.querySelector('.tags-input')?.style.display === 'block';
                 if (isEditingTags) {
                     return; 
                 }

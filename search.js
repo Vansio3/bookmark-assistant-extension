@@ -54,7 +54,7 @@ export function flattenBookmarks(bookmarkNodes) {
 
 /**
  * Searches the user's browser history using the efficient chrome.history API.
- * (This function is unchanged)
+ * Now includes the last visit time in the results.
  */
 export async function searchHistory(query) {
     return new Promise(resolve => {
@@ -66,7 +66,8 @@ export async function searchHistory(query) {
             const formattedResults = historyItems.map(historyItem => ({
                 item: {
                     title: historyItem.title || historyItem.url,
-                    url: historyItem.url
+                    url: historyItem.url,
+                    lastVisitTime: historyItem.lastVisitTime
                 }
             }));
             resolve(formattedResults);
