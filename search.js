@@ -204,6 +204,18 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
     }
     
     await Promise.all(historyPromises);
-    topResults.sort((a, b) => b.score - a.score);
-    return topResults;
+
+    // --- Pass 3: Deduplication based on URL, keeping the highest scored item ---
+    const uniqueResults = new Map();
+    for (const result of topResults) {
+        const existingResult = uniqueResults.get(result.item.url);
+        // If we haven't seen this URL, or the new result has a better score, keep it.
+        if (!existingResult || result.score > existingResult.score) {
+            uniqueResults.set(result.item.url, result);
+        }
+    }
+    const deduplicatedResults = Array.from(uniqueResults.values());
+    
+    deduplicatedResults.sort((a, b) => b.score - a.score);
+    return deduplicatedResults;
 }
