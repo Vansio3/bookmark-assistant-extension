@@ -54,26 +54,51 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    /**
+     * Flattens the Chrome bookmark tree for the fallback scenario.
+     */
+    function flattenBookmarks(bookmarkNodes) {
+        const bookmarks = [];
+        const stack = [...bookmarkNodes];
+        while (stack.length > 0) {
+            const node = stack.pop();
+            if (node.url) {
+                bookmarks.push({ title: node.title, url: node.url });
+            }
+            if (node.children) {
+                stack.push(...node.children);
+            }
+        }
+        return bookmarks;
+    }
+
     // --- Main Execution ---
 
-    // 1. Load bookmarks from cache on startup
-    chrome.storage.local.get('cachedBookmarks', (data) => {
+    /**
+     * Initializes the popup by loading bookmarks from cache or building it if it doesn't exist.
+     */
+    async function initialize() {
+        const data = await chrome.storage.local.get('cachedBookmarks');
         if (data.cachedBookmarks) {
             allBookmarks = data.cachedBookmarks;
         } else {
-            // Fallback in case the cache is empty on first run
-            chrome.bookmarks.getTree((bookmarkTree) => {
-                const flattened = flattenBookmarks(bookmarkTree);
-                allBookmarks = flattened;
-                chrome.storage.local.set({ cachedBookmarks: flattened });
-            });
+            // Fallback in case the cache is empty on the very first run
+            console.log("Cache miss, building bookmarks from tree for the first time.");
+            // Promisify the callback-based chrome.bookmarks.getTree API
+            const bookmarkTree = await new Promise(resolve => chrome.bookmarks.getTree(resolve));
+            allBookmarks = flattenBookmarks(bookmarkTree);
+            // Don't wait for this to complete to show the UI
+            chrome.storage.local.set({ cachedBookmarks: allBookmarks });
         }
-    });
+    }
+
+    // 1. Load bookmarks from cache on startup and then set up listeners
+    initialize();
 
     // 2. Add listener for typing in the search bar
     searchInput.addEventListener('input', async function () {
         const query = this.value.trim();
-        selectedIndex = -1;
+        selectedIndex = -1; // Reset selection on new search
         if (query.length > 0) {
             appContainer.classList.add('is-searching');
             const results = await customSearch(query, allBookmarks);
@@ -102,24 +127,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (selectedIndex >= 0 && selectedIndex < items.length) {
                 const urlToOpen = items[selectedIndex].href;
                 chrome.tabs.create({ url: urlToOpen });
-                window.close();
+                window.close(); // Close the popup after opening a tab
             }
         }
     });
-
-    // Utility function for the fallback
-    function flattenBookmarks(bookmarkNodes) {
-        const bookmarks = [];
-        const stack = [...bookmarkNodes];
-        while (stack.length > 0) {
-            const node = stack.pop();
-            if (node.url) {
-                bookmarks.push({ title: node.title, url: node.url });
-            }
-            if (node.children) {
-                stack.push(...node.children);
-            }
-        }
-        return bookmarks;
-    }
 });
