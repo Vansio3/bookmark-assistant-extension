@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function () {
             bookmarkElement.title = bookmark.url;
 
             bookmarkElement.addEventListener('mousedown', (e) => {
-                if (e.target.closest('.edit-tags-btn') || e.target.classList.contains('tags-input')) {
+                if (e.target.closest('.edit-tags-btn')) {
                     return;
                 }
 
@@ -102,6 +102,10 @@ document.addEventListener('DOMContentLoaded', function () {
             tagsInput.placeholder = 'Add tags, comma-separated...';
             tagsInput.style.display = 'none';
             tagsInput.value = tags.join(', ');
+
+            tagsInput.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+            });
 
             const renderTags = (currentTags) => {
                 tagsContainer.innerHTML = '';
