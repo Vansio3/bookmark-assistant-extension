@@ -25,7 +25,6 @@ html, body {
     background-color: var(--background-color);
     display: flex;
     flex-direction: column;
-    /* Set a max-height to contain the expanded view */
     max-height: 450px; 
 }
 
@@ -43,7 +42,7 @@ html, body {
     box-sizing: border-box;
     color: var(--text-color);
     font-size: 16px;
-    padding: 16px 50px 16px 16px; /* Added right padding for button */
+    padding: 16px 50px 16px 16px;
     transition: border-color 0.2s ease;
     width: 100%;
 }
@@ -58,7 +57,7 @@ html, body {
     color: var(--subtle-text);
 }
 
-/* --- NEW: History Toggle Button --- */
+/* --- History Toggle Button --- */
 #historyToggle {
     position: absolute;
     right: 8px;
@@ -90,70 +89,55 @@ html, body {
     border-color: var(--primary-accent);
 }
 
-
 /* --- Bookmarks List & Scrollbar --- */
 #bookmarksList {
     flex-grow: 1;
     overflow-y: auto;
-    /* Hide the list by default */
     visibility: hidden;
     opacity: 0;
     max-height: 0;
     transition: max-height 0.2s ease-out, opacity 0.2s ease-out;
 }
 
-/* --- NEW: Show and expand the list when searching --- */
 .container.is-searching #bookmarksList {
     visibility: visible;
     opacity: 1;
-    max-height: 400px; /* Animate to this height */
+    max-height: 400px;
 }
 
-
-#bookmarksList::-webkit-scrollbar {
-    width: 8px;
-}
-
-#bookmarksList::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-#bookmarksList::-webkit-scrollbar-thumb {
-    background-color: var(--card-bg);
-    border-radius: 4px;
-}
-
-#bookmarksList::-webkit-scrollbar-thumb:hover {
-    background-color: var(--card-hover);
-}
+#bookmarksList::-webkit-scrollbar { width: 8px; }
+#bookmarksList::-webkit-scrollbar-track { background: transparent; }
+#bookmarksList::-webkit-scrollbar-thumb { background-color: var(--card-bg); border-radius: 4px; }
+#bookmarksList::-webkit-scrollbar-thumb:hover { background-color: var(--card-hover); }
 
 /* --- Individual Bookmark Items --- */
 .bookmark-item {
-    align-items: center;
-    border-radius: 0;
     color: var(--text-color);
-    cursor: pointer;
+    cursor: pointer; /* Ensure the item looks clickable */
     display: flex;
     padding: 12px 16px;
     text-decoration: none;
     transition: background-color 0.2s ease;
+    align-items: flex-start;
+    position: relative;
+    padding-right: 40px;
 }
 
-.bookmark-item:hover {
-    background-color: var(--card-hover);
-    transform: none;
-}
-
-.bookmark-item.selected {
-    background-color: var(--primary-accent);
-    color: var(--selected-text-color);
-}
+.bookmark-item:hover { background-color: var(--card-hover); }
+.bookmark-item.selected { background-color: var(--primary-accent); color: var(--selected-text-color); }
 
 .bookmark-item img {
     flex-shrink: 0;
     height: 20px;
     margin-right: 12px;
     width: 20px;
+}
+
+.bookmark-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
 }
 
 .bookmark-item .title {
@@ -163,10 +147,85 @@ html, body {
     white-space: nowrap;
 }
 
-/* --- No Results Message --- */
 .no-results {
     color: var(--subtle-text);
     font-style: italic;
     padding: 20px 16px;
     text-align: center;
+}
+
+/* --- Tag Display --- */
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.tag-pill {
+    background-color: var(--border-color);
+    color: var(--subtle-text);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.bookmark-item.selected .tag-pill {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: var(--selected-text-color);
+}
+
+/* --- Edit Tags Button --- */
+.edit-tags-btn {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.bookmark-item:hover .edit-tags-btn,
+.bookmark-item.selected .edit-tags-btn {
+    opacity: 1;
+}
+
+.edit-tags-btn:hover {
+    background-color: var(--card-hover);
+}
+
+.edit-tags-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: var(--subtle-text);
+    display: block;
+}
+
+.bookmark-item.selected .edit-tags-btn svg {
+    fill: var(--selected-text-color);
+}
+
+/* --- Tags Input Field --- */
+.tags-input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-color);
+    font-size: 13px;
+    margin-top: 6px;
+    padding: 8px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.tags-input:focus {
+    border-color: var(--primary-accent);
 }
