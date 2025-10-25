@@ -1,11 +1,9 @@
 /**
  * Calculates the Levenshtein distance between two strings.
- * (This function is unchanged)
  */
 function levenshteinDistance(s1, s2) {
     s1 = s1.toLowerCase();
     s2 = s2.toLowerCase();
-
     const costs = [];
     for (let i = 0; i <= s1.length; i++) {
         let lastValue = i;
@@ -32,7 +30,6 @@ function levenshteinDistance(s1, s2) {
 
 /**
  * Searches the user's browser history using the efficient chrome.history API.
- * Now includes the last visit time in the results.
  */
 export async function searchHistory(query) {
     return new Promise(resolve => {
@@ -54,14 +51,7 @@ export async function searchHistory(query) {
 }
 
 /**
- * Performs an OPTIMIZED fuzzy search on bookmarks, now with tag support.
- * It filters by tags (#tag) and adds score for tag keyword matches.
- * @param {string} query The search query.
- * @param {Array} allBookmarks The list of all bookmarks to search through.
- * @param {Object} visitCountCache A cache object to read/write visit counts.
- * @param {Object} domainScores A map of domain visit counts for boosting.
- * @param {Object} bookmarkTags A map of URL -> [tags].
- * @returns {Promise<Array>} A sorted array of matching bookmark objects.
+ * Performs an OPTIMIZED fuzzy search on bookmarks.
  */
 export async function customSearch(query, allBookmarks, visitCountCache, domainScores, bookmarkTags) {
     const { weights } = await chrome.storage.sync.get({
@@ -72,32 +62,19 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
     });
 
     const lowerCaseQuery = query.toLowerCase();
-    
-    // --- Step 1: Parse query for search terms and tag filters ---
     const allQueryWords = lowerCaseQuery.split(' ').filter(w => w);
     const tagFilters = allQueryWords.filter(w => w.startsWith('#')).map(t => t.substring(1));
     const queryWords = allQueryWords.filter(w => !w.startsWith('#'));
 
-    // --- Step 2: Pre-filter bookmarks by tag if necessary ---
     let workingBookmarks = allBookmarks;
     if (tagFilters.length > 0) {
         workingBookmarks = allBookmarks.filter(bookmark => {
             const tags = bookmarkTags[bookmark.url] || [];
             if (tags.length === 0) return false;
-
-            // A bookmark must have a matching tag for EVERY filter tag provided.
             return tagFilters.every(filterTag =>
-                // Check if any of the bookmark's tags match the current filter tag.
                 tags.some(tag => {
-                    // 1. Fast check
-                    if (tag.includes(filterTag)) {
-                        return true;
-                    }
-
-                    // 2. Fuzzy check
+                    if (tag.includes(filterTag)) return true;
                     const distance = levenshteinDistance(tag, filterTag);
-                    
-                    // Allow a small distance for typos. For longer tags, be more lenient.
                     const threshold = tag.length > 5 ? 2 : 1;
                     return distance <= threshold;
                 })
@@ -105,7 +82,6 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
         });
     }
 
-    // --- Pass 1: Quick text-based search and scoring ---
     const preliminaryResults = [];
     const isTagOnlySearch = queryWords.length === 0 && tagFilters.length > 0;
 
@@ -116,44 +92,43 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
         let score = 0;
         const matchedWords = new Set();
 
-        for (const word of queryWords) {
-            let wordMatched = false;
-            // Highest priority: Tag Match
-            if (tags.some(tag => tag.includes(word))) {
-                score += weights.tagMatch;
-                wordMatched = true;
-            }
-            // Title Match
-            if (lowerCaseTitle.includes(word)) {
-                score += weights.titleMatch;
-                if (lowerCaseTitle.split(' ').some(titleWord => titleWord.startsWith(word))) {
-                    score += weights.startsWithBonus;
+        if (isTagOnlySearch) {
+            score = weights.tagMatch;
+        } else {
+            for (const word of queryWords) {
+                let wordMatched = false;
+                if (tags.some(tag => tag.includes(word))) {
+                    score += weights.tagMatch;
+                    wordMatched = true;
                 }
-                wordMatched = true;
-            } 
-            // URL Match
-            else if (bookmarkUrl.includes(word)) {
-                score += weights.urlMatch;
-                wordMatched = true;
-            }
-            if (wordMatched) {
-                matchedWords.add(word);
+                if (lowerCaseTitle.includes(word)) {
+                    score += weights.titleMatch;
+                    if (lowerCaseTitle.split(' ').some(titleWord => titleWord.startsWith(word))) {
+                        score += weights.startsWithBonus;
+                    }
+                    wordMatched = true;
+                } 
+                else if (bookmarkUrl.includes(word)) {
+                    score += weights.urlMatch;
+                    wordMatched = true;
+                }
+                if (wordMatched) {
+                    matchedWords.add(word);
+                }
             }
         }
         
-        // Levenshtein distance only if query words were used and not all matched
-        if (queryWords.length > 0 && matchedWords.size < queryWords.length) {
-            const distance = levenshteinDistance(queryWords.join(' '), lowerCaseTitle.substring(0, queryWords.join(' ').length));
-            if (distance <= Math.floor(queryWords.join(' ').length / 4)) {
-                score += 20 - distance * 5;
-            }
-        }
-
-        if (isTagOnlySearch) {
-            score = weights.tagMatch;
-        }
-
+        // --- OPTIMIZATION: Only run expensive calculations if a basic score exists ---
         if (score > 0) {
+            // Levenshtein check
+            if (queryWords.length > 0 && matchedWords.size < queryWords.length) {
+                const distance = levenshteinDistance(queryWords.join(' '), lowerCaseTitle.substring(0, queryWords.join(' ').length));
+                if (distance <= Math.floor(queryWords.join(' ').length / 4)) {
+                    score += 20 - distance * 5;
+                }
+            }
+
+            // Score boosters
             if (matchedWords.size === queryWords.length && queryWords.length > 1) {
                 score *= weights.allWordsBonus;
             }
@@ -168,11 +143,10 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
         }
     }
 
-    // --- Pass 2: History and Recency Enrichment ---
     preliminaryResults.sort((a, b) => b.score - a.score);
     const topResults = preliminaryResults.slice(0, 25);
     const historyPromises = [];
-    const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
+    const CACHE_TTL = 1000 * 60 * 60 * 24;
 
     for (const result of topResults) {
         const url = result.item.url;
@@ -205,11 +179,9 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
     
     await Promise.all(historyPromises);
 
-    // --- Pass 3: Deduplication based on URL, keeping the highest scored item ---
     const uniqueResults = new Map();
     for (const result of topResults) {
         const existingResult = uniqueResults.get(result.item.url);
-        // If we haven't seen this URL, or the new result has a better score, keep it.
         if (!existingResult || result.score > existingResult.score) {
             uniqueResults.set(result.item.url, result);
         }

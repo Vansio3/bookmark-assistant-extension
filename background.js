@@ -9,7 +9,6 @@ function flattenBookmarks(bookmarkTreeNodes) {
 
     function traverse(nodes, path) {
         for (const node of nodes) {
-            // If it's a bookmark (has a URL), add it to our list with its path.
             if (node.url) {
                 bookmarks.push({
                     title: node.title,
@@ -17,23 +16,18 @@ function flattenBookmarks(bookmarkTreeNodes) {
                     path: path.join(' / ')
                 });
             }
-            // If it's a folder (has children), traverse into it.
             if (node.children) {
-                // Add the current folder's title to the path for its children.
-                // Exclude the root folders which have no title or are system folders.
                 const newPath = node.title && node.parentId !== '0' ? [...path, node.title] : path;
                 traverse(node.children, newPath);
             }
         }
     }
-    // Start with the top-level nodes and an empty path array.
     traverse(bookmarkTreeNodes, []);
     return bookmarks;
 }
 
 /**
  * Fetches the entire bookmark tree, flattens it, and stores it in chrome.storage.local.
- * This is used for the initial setup and for complex changes that are hard to track incrementally.
  */
 function buildFullBookmarkCache() {
     console.log("Performing full bookmark cache rebuild...");
@@ -52,18 +46,16 @@ function buildFullBookmarkCache() {
 async function getFolderPath(folderId) {
     const path = [];
     let currentId = folderId;
-    // Traverse up from the parent folder until we hit the root ('0')
     while (currentId && currentId !== '0') {
         const nodes = await new Promise(resolve => chrome.bookmarks.get(currentId, resolve));
         if (nodes && nodes.length > 0) {
             const node = nodes[0];
-            // Don't include the names of root folders like "Bookmarks Bar", etc.
             if (node.parentId !== '0') {
                 path.unshift(node.title);
             }
             currentId = node.parentId;
         } else {
-            break; // Stop if a node is not found
+            break; 
         }
     }
     return path;
@@ -73,13 +65,11 @@ async function getFolderPath(folderId) {
  * Incrementally adds a newly created bookmark to the local cache.
  */
 async function onBookmarkCreated(id, bookmark) {
-    // Only act on actual bookmarks with a URL, not folder creation.
     if (!bookmark.url) return;
 
     console.log("Incrementally adding new bookmark...");
     const data = await chrome.storage.local.get({ cachedBookmarks: [] });
     const cachedBookmarks = data.cachedBookmarks;
-
     const newPathArray = await getFolderPath(bookmark.parentId);
 
     cachedBookmarks.push({
@@ -94,11 +84,8 @@ async function onBookmarkCreated(id, bookmark) {
 
 /**
  * Incrementally removes a single bookmark from the local cache.
- * If a folder is removed, it triggers a full cache rebuild for simplicity.
  */
 async function onBookmarkRemoved(id, removeInfo) {
-    // If a folder was removed (it has no URL), its children are also gone.
-    // This is too complex to handle incrementally, so we do a full rebuild.
     if (!removeInfo.node.url) {
         console.log("Folder removed, triggering full cache rebuild.");
         buildFullBookmarkCache();
@@ -108,8 +95,6 @@ async function onBookmarkRemoved(id, removeInfo) {
     console.log("Incrementally removing bookmark...");
     const data = await chrome.storage.local.get({ cachedBookmarks: [] });
     const cachedBookmarks = data.cachedBookmarks;
-
-    // Find the bookmark to remove by its URL and Title. This is safer than just URL.
     const indexToRemove = cachedBookmarks.findIndex(
         bm => bm.url === removeInfo.node.url && bm.title === removeInfo.node.title
     );
@@ -121,22 +106,64 @@ async function onBookmarkRemoved(id, removeInfo) {
     }
 }
 
+/**
+ * Incrementally updates a bookmark's title in the cache when it's changed.
+ */
+async function onBookmarkChanged(id, changeInfo) {
+    console.log("Incrementally updating changed bookmark...");
+    const data = await chrome.storage.local.get({ cachedBookmarks: [] });
+    const cachedBookmarks = data.cachedBookmarks;
+    const [bookmarkNode] = await new Promise(resolve => chrome.bookmarks.get(id, resolve));
+
+    if (!bookmarkNode || !bookmarkNode.url) return;
+
+    const bookmarkToUpdate = cachedBookmarks.find(bm => bm.url === bookmarkNode.url);
+
+    if (bookmarkToUpdate) {
+        bookmarkToUpdate.title = changeInfo.title;
+        await chrome.storage.local.set({ cachedBookmarks });
+        console.log("Bookmark title updated in cache.");
+    } else {
+        buildFullBookmarkCache();
+    }
+}
+
+/**
+ * Incrementally updates a bookmark's path in the cache when it's moved.
+ */
+async function onBookmarkMoved(id, moveInfo) {
+    console.log("Incrementally updating moved bookmark...");
+    const data = await chrome.storage.local.get({ cachedBookmarks: [] });
+    const cachedBookmarks = data.cachedBookmarks;
+    const [bookmarkNode] = await new Promise(resolve => chrome.bookmarks.get(id, resolve));
+
+    if (!bookmarkNode || !bookmarkNode.url) {
+        console.log("Folder moved, triggering full cache rebuild.");
+        buildFullBookmarkCache();
+        return;
+    }
+
+    const bookmarkToUpdate = cachedBookmarks.find(bm => bm.url === bookmarkNode.url);
+
+    if (bookmarkToUpdate) {
+        const newPathArray = await getFolderPath(moveInfo.parentId);
+        bookmarkToUpdate.path = newPathArray.join(' / ');
+        await chrome.storage.local.set({ cachedBookmarks });
+        console.log("Bookmark path updated in cache.");
+    } else {
+        buildFullBookmarkCache();
+    }
+}
+
+
 // --- Event Listeners ---
-
-// On first install, perform a full build of the cache.
 chrome.runtime.onInstalled.addListener(buildFullBookmarkCache);
-
-// Use efficient, incremental updates for simple creation and removal.
 chrome.bookmarks.onCreated.addListener(onBookmarkCreated);
 chrome.bookmarks.onRemoved.addListener(onBookmarkRemoved);
+chrome.bookmarks.onChanged.addListener(onBookmarkChanged);
+chrome.bookmarks.onMoved.addListener(onBookmarkMoved);
 
-// For complex changes (renaming, moving), a full rebuild is safer and simpler
-// to ensure data integrity, especially regarding paths.
-chrome.bookmarks.onChanged.addListener(buildFullBookmarkCache);
-chrome.bookmarks.onMoved.addListener(buildFullBookmarkCache);
-
-// --- New Command Listener ---
-// Listen for the command to open the extension in a new popup window.
+// --- Command Listener ---
 chrome.commands.onCommand.addListener(async (command) => {
     if (command === "open_popup_window") {
         const [displayInfo] = await chrome.system.display.getInfo();
@@ -144,7 +171,6 @@ chrome.commands.onCommand.addListener(async (command) => {
 
         const windowWidth = 414;
         const windowHeight = 477;
-
         const left = Math.round((screenWidth - windowWidth) / 2);
         const top = Math.round((screenHeight - windowHeight) / 2);
 
