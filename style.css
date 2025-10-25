@@ -28,6 +28,12 @@ html, body {
     display: flex;
     flex-direction: column;
     max-height: 450px; 
+    transition: opacity 0.05s ease-out;
+}
+
+/* This new class will be added via JavaScript to trigger the fade */
+.container.closing {
+    opacity: 0;
 }
 
 /* --- Search Input Area --- */

@@ -4,8 +4,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Auto-close functionality for external window ---
     const params = new URLSearchParams(window.location.search);
     if (params.get('source') === 'window') {
+        const appContainer = document.getElementById('app-container');
         window.addEventListener('blur', () => {
-            window.close();
+            // 1. Add the 'closing' class to trigger the fade-out animation
+            appContainer.classList.add('closing');
+
+            // 2. Close the window after the animation has finished (150ms)
+            setTimeout(() => {
+                window.close();
+            }, 50); 
         });
     }
 
