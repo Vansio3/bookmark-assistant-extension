@@ -55,9 +55,20 @@ document.addEventListener('DOMContentLoaded', function () {
         await chrome.storage.local.set({ bookmarkTags });
     }
 
+    /**
+     * Navigates to the given URL in a new tab after performing security checks.
+     * Also tracks the domain for ranking and closes the popup.
+     * @param {string} url The URL to navigate to.
+     */
     function navigateToUrl(url) {
-        if (!url.startsWith('http:') && !url.startsWith('https:') && !url.startsWith('chrome:')) {
-            console.warn(`Blocked navigation to potentially unsafe URL: ${url}`);
+        try {
+            const parsedUrl = new URL(url);
+            if (!['http:', 'https:', 'chrome:'].includes(parsedUrl.protocol)) {
+                console.warn(`Blocked navigation to a URL with an unsupported protocol: ${url}`);
+                return;
+            }
+        } catch (e) {
+            console.warn(`Blocked navigation to an invalid or malformed URL: ${url}`);
             return;
         }
         trackDomainSelection(url);
