@@ -1,6 +1,14 @@
 import { customSearch, searchHistory } from './search.js';
 
 document.addEventListener('DOMContentLoaded', function () {
+    // --- Auto-close functionality for external window ---
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('source') === 'window') {
+        window.addEventListener('blur', () => {
+            window.close();
+        });
+    }
+
     const searchInput = document.getElementById('searchInput');
     const bookmarksList = document.getElementById('bookmarksList');
     const appContainer = document.getElementById('app-container');

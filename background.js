@@ -134,3 +134,28 @@ chrome.bookmarks.onRemoved.addListener(onBookmarkRemoved);
 // to ensure data integrity, especially regarding paths.
 chrome.bookmarks.onChanged.addListener(buildFullBookmarkCache);
 chrome.bookmarks.onMoved.addListener(buildFullBookmarkCache);
+
+// --- New Command Listener ---
+// Listen for the command to open the extension in a new popup window.
+chrome.commands.onCommand.addListener(async (command) => {
+    if (command === "open_popup_window") {
+        const [displayInfo] = await chrome.system.display.getInfo();
+        const { width: screenWidth, height: screenHeight } = displayInfo.workArea;
+
+        const windowWidth = 414;
+        const windowHeight = 450;
+
+        const left = Math.round((screenWidth - windowWidth) / 2);
+        const top = Math.round((screenHeight - windowHeight) / 2);
+
+        chrome.windows.create({
+            url: "popup.html?source=window",
+            type: "popup",
+            width: windowWidth,
+            height: windowHeight,
+            left: left,
+            top: top,
+            focused: true,
+        });
+    }
+});

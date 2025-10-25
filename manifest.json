@@ -6,7 +6,9 @@
   "permissions": [
     "bookmarks",
     "history",
-    "storage"
+    "storage",
+    "commands",
+    "system.display"
   ],
   "host_permissions": [
     "https://www.google.com/s2/favicons*"
@@ -33,6 +35,12 @@
         "default": "Alt+B"
       },
       "description": "Open Bookmark Filter"
+    },
+    "open_popup_window": {
+      "suggested_key": {
+        "default": "Alt+Shift+B"
+      },
+      "description": "Open in a separate popup window"
     }
   },
   "options_ui": {
