@@ -348,6 +348,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.key === 'Enter') {
             e.preventDefault();
             const query = searchInput.value.trim();
+            if (query.startsWith('::')) {
+                const googleQuery = query.substring(2).trim();
+                if (googleQuery) {
+                    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}&udm=50`;
+                    chrome.tabs.create({ url: searchUrl });
+                    window.close();
+                }
+                return;
+            }
             if (query.startsWith(':')) {
                 const googleQuery = query.substring(1).trim();
                 if (googleQuery) {
