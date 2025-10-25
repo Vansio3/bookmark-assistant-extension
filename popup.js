@@ -168,9 +168,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     pathEl.style.display = 'none';
                 }
+                tagsContainer.innerHTML = '';
                 
                 const tags = bookmarkTags[bookmark.url] || [];
-                tagsContainer.innerHTML = tags.map(tag => `<span class="tag-pill">${tag}</span>`).join('');
+                
+                tags.forEach(tagText => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'tag-pill';
+                    tagElement.textContent = tagText;
+                    tagsContainer.appendChild(tagElement);
+                });
                 content.querySelector('.tags-input').value = tags.join(', ');
             }
         });
