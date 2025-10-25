@@ -317,7 +317,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (isEditing) {
                 const newTags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
                 saveTagsForUrl(url, newTags);
-                tagsContainer.innerHTML = newTags.map(tag => `<span class="tag-pill">${tag}</span>`).join('');
+                tagsContainer.innerHTML = '';
+                newTags.forEach(tagText => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'tag-pill';
+                    tagElement.textContent = tagText;
+                    tagsContainer.appendChild(tagElement);
+                });
                 tagsInput.style.display = 'none';
                 tagsContainer.style.display = 'flex';
                 activeTagInput = null;
