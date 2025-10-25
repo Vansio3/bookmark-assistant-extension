@@ -157,7 +157,12 @@ async function onBookmarkMoved(id, moveInfo) {
 
 
 // --- Event Listeners ---
-chrome.runtime.onInstalled.addListener(buildFullBookmarkCache);
+chrome.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install') {
+        chrome.tabs.create({ url: 'welcome.html' });
+    }
+    buildFullBookmarkCache();
+});
 chrome.bookmarks.onCreated.addListener(onBookmarkCreated);
 chrome.bookmarks.onRemoved.addListener(onBookmarkRemoved);
 chrome.bookmarks.onChanged.addListener(onBookmarkChanged);
