@@ -32,13 +32,13 @@
   "commands": {
     "_execute_action": {
       "suggested_key": {
-        "default": "Alt+B"
+        "default": "Alt+M"
       },
       "description": "Open Bookmark Filter"
     },
     "open_popup_window": {
       "suggested_key": {
-        "default": "Alt+Shift+B"
+        "default": "Alt+B"
       },
       "description": "Open in a separate popup window"
     }
