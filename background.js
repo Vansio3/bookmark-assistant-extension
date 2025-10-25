@@ -55,7 +55,7 @@ async function getFolderPath(folderId) {
             }
             currentId = node.parentId;
         } else {
-            break; 
+            break;
         }
     }
     return path;
@@ -158,6 +158,11 @@ async function onBookmarkMoved(id, moveInfo) {
 
 // --- Event Listeners ---
 chrome.runtime.onInstalled.addListener((details) => {
+    chrome.contextMenus.create({
+        id: "open-welcome-page",
+        title: "Help Guide",
+        contexts: ["action"] 
+    });
     if (details.reason === 'install') {
         chrome.tabs.create({ url: 'welcome.html' });
     }
@@ -187,6 +192,21 @@ chrome.commands.onCommand.addListener(async (command) => {
             left: left,
             top: top,
             focused: true,
+        });
+    }
+});
+
+// --- Context Menu Listener ---
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === "open-welcome-page") {
+        const welcomeUrl = chrome.runtime.getURL('welcome.html');
+
+        chrome.tabs.query({ url: welcomeUrl }, (tabs) => {
+            if (tabs.length > 0) {
+                chrome.tabs.update(tabs[0].id, { active: true });
+            } else {
+                chrome.tabs.create({ url: welcomeUrl });
+            }
         });
     }
 });

@@ -64,6 +64,18 @@ h1 {
     margin-bottom: 1em;
 }
 
+.card a {
+    color: var(--subtle-text);
+    text-decoration: none;
+    transition: color 0.2s;
+    text-decoration: underline;
+}
+
+.card a:hover {
+    color: var(--primary-accent);
+    text-decoration: underline;
+}
+
 .step-number {
     background-color: var(--primary-accent);
     color: var(--background-color);

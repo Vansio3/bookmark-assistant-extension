@@ -8,7 +8,8 @@
     "history",
     "storage",
     "commands",
-    "system.display"
+    "system.display",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://www.google.com/s2/favicons*"
