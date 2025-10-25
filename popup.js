@@ -107,6 +107,13 @@ document.addEventListener('DOMContentLoaded', function () {
             title.className = 'title';
             content.appendChild(title);
 
+            const cleanUrl = bookmark.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "");
+            const urlDisplay = document.createElement('div');
+            urlDisplay.className = 'url-display';
+            urlDisplay.textContent = cleanUrl;
+            content.appendChild(urlDisplay);
+
+
             if (searchMode === 'history') {
                 const historyTime = document.createElement('div');
                 historyTime.className = 'history-time';
