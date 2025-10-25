@@ -143,7 +143,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         const { width: screenWidth, height: screenHeight } = displayInfo.workArea;
 
         const windowWidth = 414;
-        const windowHeight = 450;
+        const windowHeight = 477;
 
         const left = Math.round((screenWidth - windowWidth) / 2);
         const top = Math.round((screenHeight - windowHeight) / 2);
