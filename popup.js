@@ -60,6 +60,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const editIconSvg = `<svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M13.586 3.586a2 2 0 112.828 2.828l-1.06 1.06-2.829-2.828 1.061-1.06zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>`;
+        const copyIconSvg = `<svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg>`;
+        const successIconSvg = `<svg viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"></path></svg>`;
 
         itemsToDisplay.forEach((result) => {
             const bookmark = result.item;
@@ -77,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             bookmarkElement.addEventListener('mouseup', (e) => {
-                if (e.target.closest('.edit-tags-btn')) {
+                if (e.target.closest('.action-btn')) {
                     return;
                 }
 
@@ -163,12 +165,34 @@ document.addEventListener('DOMContentLoaded', function () {
                 content.appendChild(tagsInput);
                 bookmarkElement.appendChild(content);
 
+                const actionButtons = document.createElement('div');
+                actionButtons.className = 'action-buttons';
+
+                const copyButton = document.createElement('button');
+                copyButton.className = 'action-btn copy-url-btn';
+                copyButton.innerHTML = copyIconSvg;
+                copyButton.title = 'Copy URL';
+
+                copyButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    navigator.clipboard.writeText(bookmark.url);
+                    copyButton.innerHTML = successIconSvg;
+                    copyButton.classList.add('success');
+                    setTimeout(() => {
+                        copyButton.innerHTML = copyIconSvg;
+                        copyButton.classList.remove('success');
+                    }, 1200);
+                });
+                actionButtons.appendChild(copyButton);
+
                 const editButton = document.createElement('button');
-                editButton.className = 'edit-tags-btn';
+                editButton.className = 'action-btn edit-tags-btn';
                 editButton.innerHTML = editIconSvg;
                 editButton.title = 'Edit Tags';
                 
                 editButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     e.preventDefault();
                     const isEditing = tagsInput.style.display === 'block';
                     if (isEditing) {
@@ -189,7 +213,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         };
                     }
                 });
-                bookmarkElement.appendChild(editButton);
+                actionButtons.appendChild(editButton);
+                bookmarkElement.appendChild(actionButtons);
+
 
                 tagsInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {

@@ -10,6 +10,7 @@
     --subtle-text: #888888;
     --shadow-color: rgba(255, 191, 0, 0.2);
     --selected-text-color: #121212;
+    --success-color: #28a745;
 }
 
 html, body {
@@ -122,7 +123,7 @@ html, body {
     transition: background-color 0.2s ease;
     align-items: flex-start;
     position: relative;
-    padding-right: 40px;
+    padding-right: 70px; /* Increased padding for action buttons */
 }
 
 .bookmark-item:hover { background-color: var(--card-hover); }
@@ -202,31 +203,36 @@ html, body {
     color: var(--text-color);
 }
 
-/* --- Edit Tags Button --- */
-.edit-tags-btn {
+/* --- Action Buttons (Copy, Edit) --- */
+.action-buttons {
     position: absolute;
-    top: 50%;
+    bottom: 8px; /* Aligned to the bottom */
     right: 8px;
-    transform: translateY(-50%);
+    display: flex;
+    gap: 6px;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease;
+}
+
+.bookmark-item:hover .action-buttons,
+.bookmark-item.selected .action-buttons {
+    opacity: 1; /* Show on hover/selection */
+}
+
+.action-btn {
     background: none;
     border: none;
     cursor: pointer;
     padding: 6px;
     border-radius: 50%;
-    opacity: 0;
     transition: opacity 0.2s ease, background-color 0.2s ease;
 }
 
-.bookmark-item:hover .edit-tags-btn,
-.bookmark-item.selected .edit-tags-btn {
-    opacity: 1;
-}
-
-.edit-tags-btn:hover {
+.action-btn:hover {
     background-color: rgba(var(--primary-accent-rgb), 0.25);
 }
 
-.edit-tags-btn svg {
+.action-btn svg {
     width: 18px;
     height: 18px;
     fill: var(--subtle-text);
@@ -234,20 +240,24 @@ html, body {
     transition: fill 0.2s ease;
 }
 
-.edit-tags-btn:hover svg {
+.action-btn:hover svg {
     fill: var(--primary-accent);
 }
 
-.bookmark-item.selected .edit-tags-btn svg {
+.bookmark-item.selected .action-btn svg {
     fill: var(--text-color);
 }
 
-.bookmark-item.selected .edit-tags-btn:hover {
+.bookmark-item.selected .action-btn:hover {
     background-color: var(--primary-accent);
 }
 
-.bookmark-item.selected .edit-tags-btn:hover svg {
+.bookmark-item.selected .action-btn:hover svg {
     fill: var(--selected-text-color);
+}
+
+.copy-url-btn.success svg {
+    fill: var(--success-color);
 }
 
 /* --- Tags Input Field --- */
