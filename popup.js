@@ -14,6 +14,11 @@ document.addEventListener('DOMContentLoaded', function () {
     let bookmarkTags = {};
     let debounceTimer;
     let activeTagInput = null;
+    let isDraggingInTagInput = false; // Mitigation flag
+
+    window.addEventListener('mouseup', () => {
+        isDraggingInTagInput = false;
+    });
 
     function closeActiveTagInput() {
         if (activeTagInput && activeTagInput.save) {
@@ -79,6 +84,11 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             bookmarkElement.addEventListener('mouseup', (e) => {
+                if (isDraggingInTagInput) {
+                    isDraggingInTagInput = false; // Reset just in case window listener fails
+                    return;
+                }
+
                 if (e.target.closest('.action-btn')) {
                     return;
                 }
@@ -146,6 +156,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 tagsInput.placeholder = 'Add tags, comma-separated...';
                 tagsInput.style.display = 'none';
                 tagsInput.value = tags.join(', ');
+
+                tagsInput.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    isDraggingInTagInput = true;
+                });
 
                 tagsInput.addEventListener('mouseup', (e) => {
                     e.stopPropagation();
