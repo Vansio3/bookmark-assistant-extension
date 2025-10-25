@@ -69,6 +69,13 @@ document.addEventListener('DOMContentLoaded', function () {
             bookmarkElement.dataset.url = bookmark.url;
             bookmarkElement.title = bookmark.url;
 
+            // Prevent the default middle-mouse-button scroll action.
+            bookmarkElement.addEventListener('mousedown', (e) => {
+                if (e.button === 1) {
+                    e.preventDefault();
+                }
+            });
+
             bookmarkElement.addEventListener('mouseup', (e) => {
                 if (e.target.closest('.edit-tags-btn')) {
                     return;
@@ -79,7 +86,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 const isCtrlClick = e.button === 0 && (e.ctrlKey || e.metaKey);
 
                 if (isMiddleClick || isCtrlClick) {
-                    e.preventDefault();
                     trackDomainSelection(url);
                     chrome.tabs.create({ url: url, active: false });
                 }
