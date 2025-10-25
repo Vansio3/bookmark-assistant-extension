@@ -265,6 +265,12 @@ document.addEventListener('DOMContentLoaded', function () {
     async function executeSearch() {
         const query = searchInput.value.trim();
         selectedIndex = -1;
+
+        if (query.startsWith(':')) {
+            appContainer.classList.remove('is-searching');
+            bookmarksList.innerHTML = '';
+            return;
+        }
     
         if (query.length > 0) {
             appContainer.classList.add('is-searching');
@@ -334,18 +340,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.addEventListener('keydown', function (e) {
         const items = bookmarksList.querySelectorAll('.bookmark-item');
-        if (items.length === 0) return;
-
-        if (e.key === 'ArrowDown') {
+        if (e.key === 'Enter') {
             e.preventDefault();
-            selectedIndex = (selectedIndex + 1) % items.length;
-            updateSelection();
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            selectedIndex = (selectedIndex - 1 + items.length) % items.length;
-            updateSelection();
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
+            const query = searchInput.value.trim();
+            if (query.startsWith(':')) {
+                const googleQuery = query.substring(1).trim();
+                if (googleQuery) {
+                    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`;
+                    chrome.tabs.create({ url: searchUrl });
+                    window.close();
+                }
+                return;
+            }
             if (selectedIndex >= 0 && selectedIndex < items.length) {
                 const selectedItem = items[selectedIndex];
                 const isEditingTags = selectedItem.querySelector('.tags-input')?.style.display === 'block';
@@ -358,6 +364,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     navigateToUrl(urlToOpen);
                 }
             }
+        }
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = (selectedIndex + 1) % items.length;
+            updateSelection();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+            updateSelection();
         }
     });
 
