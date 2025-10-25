@@ -339,6 +339,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            window.close();
+            return;
+        }
+
         const items = bookmarksList.querySelectorAll('.bookmark-item');
         if (e.key === 'Enter') {
             e.preventDefault();
