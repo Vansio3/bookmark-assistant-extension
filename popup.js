@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function () {
             bookmarkElement.dataset.url = bookmark.url;
             bookmarkElement.title = bookmark.url;
 
-            bookmarkElement.addEventListener('mousedown', (e) => {
+            bookmarkElement.addEventListener('mouseup', (e) => {
                 if (e.target.closest('.edit-tags-btn')) {
                     return;
                 }
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 tagsInput.style.display = 'none';
                 tagsInput.value = tags.join(', ');
 
-                tagsInput.addEventListener('mousedown', (e) => {
+                tagsInput.addEventListener('mouseup', (e) => {
                     e.stopPropagation();
                 });
 
