@@ -112,18 +112,22 @@ html, body {
 #bookmarksList::-webkit-scrollbar-thumb { background-color: var(--card-bg); border-radius: 4px; }
 #bookmarksList::-webkit-scrollbar-thumb:hover { background-color: var(--card-hover); }
 
-/* --- Individual Bookmark Items --- */
+/* --- Individual Bookmark Items (Compact Redesign) --- */
 .bookmark-item {
     color: var(--text-color);
     cursor: pointer;
     display: flex;
-    padding: 12px 16px;
-    min-height: 40px;
+    padding: 8px 12px; /* Reduced padding */
     text-decoration: none;
-    transition: background-color 0.2s ease;
-    align-items: flex-start;
+    transition: background-color 0.15s ease;
+    align-items: flex-start; /* Aligns favicon with the first line of text */
     position: relative;
-    padding-right: 70px; /* Increased padding for action buttons */
+    padding-right: 72px; /* Space for action buttons */
+    border-bottom: 1px solid rgba(61, 61, 61, 0.3); /* Subtle separator */
+}
+
+.bookmark-item:last-child {
+    border-bottom: none;
 }
 
 .bookmark-item:hover { background-color: var(--card-hover); }
@@ -133,12 +137,11 @@ html, body {
     color: var(--text-color);
 }
 
-
 .bookmark-item img {
     flex-shrink: 0;
     height: 16px;
-    margin-right: 12px;
-    margin-top: 3px;
+    margin-right: 10px;
+    margin-top: 2px; /* Visual alignment with title text */
     width: 16px;
 }
 
@@ -147,10 +150,14 @@ html, body {
     flex-direction: column;
     overflow: hidden;
     width: 100%;
+    justify-content: center;
+    min-height: 20px; /* Ensures minimal height if only title exists */
 }
 
 .bookmark-item .title {
-    font-size: 14px;
+    font-size: 13.5px; /* Slightly smaller but readable */
+    font-weight: 500;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -164,19 +171,22 @@ html, body {
 }
 
 .url-display {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--subtle-text);
-    margin-top: 2px;
+    opacity: 0.8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-top: 1px; /* Tighter to title */
 }
+
 /* --- Tag Display & History Time --- */
 .history-time,
 .bookmark-path {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--subtle-text);
-    margin-top: 6px;
+    opacity: 0.7;
+    margin-top: 3px; /* Tighter spacing */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -186,95 +196,89 @@ html, body {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    margin-top: 6px;
+    margin-top: 4px;
 }
 
 .tag-pill {
-    background-color: var(--border-color);
+    background-color: rgba(61, 61, 61, 0.5); /* Slightly more transparent */
     color: var(--subtle-text);
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
+    padding: 1px 7px; /* More compact pills */
+    border-radius: 4px; /* Less rounded, more tech/compact look */
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
 }
 
 .bookmark-item.selected .tag-pill {
-    background-color: rgba(var(--primary-accent-rgb), 0.4);
+    background-color: rgba(var(--primary-accent-rgb), 0.3);
     color: var(--text-color);
 }
 
-/* --- Action Buttons (Copy, Edit) --- */
+/* --- Action Buttons (Compact & Centered) --- */
 .action-buttons {
     position: absolute;
-    bottom: 8px; /* Aligned to the bottom */
-    right: 8px;
+    top: 50%;
+    transform: translateY(-50%); /* Vertically centered */
+    right: 6px;
     display: flex;
-    gap: 6px;
-    opacity: 0; /* Hidden by default */
+    gap: 2px;
+    opacity: 0;
     transition: opacity 0.2s ease;
+    background-color: var(--card-bg); /* partial background to cover long text if needed */
+    padding-left: 8px;
+    border-radius: 12px 0 0 12px;
 }
+/* Ensure background matches on hover/selection so it doesn't look weird */
+.bookmark-item:hover .action-buttons { background-color: var(--card-hover); }
+.bookmark-item.selected .action-buttons { background-color: transparent; } 
 
 .bookmark-item:hover .action-buttons,
 .bookmark-item.selected .action-buttons {
-    opacity: 1; /* Show on hover/selection */
+    opacity: 1;
 }
 
 .action-btn {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 6px;
-    border-radius: 50%;
-    transition: opacity 0.2s ease, background-color 0.2s ease;
+    padding: 5px; /* Smaller click area visually, but still usable */
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
 }
 
 .action-btn:hover {
-    background-color: rgba(var(--primary-accent-rgb), 0.25);
-}
-
-.action-btn svg {
-    width: 18px;
-    height: 18px;
-    fill: var(--subtle-text);
-    display: block;
-    transition: fill 0.2s ease;
-}
-
-.action-btn:hover svg {
-    fill: var(--primary-accent);
-}
-
-.bookmark-item.selected .action-btn svg {
-    fill: var(--text-color);
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .bookmark-item.selected .action-btn:hover {
     background-color: var(--primary-accent);
 }
 
-.bookmark-item.selected .action-btn:hover svg {
-    fill: var(--selected-text-color);
+.action-btn svg {
+    width: 16px; /* Slightly smaller icons */
+    height: 16px;
+    fill: var(--subtle-text);
+    transition: fill 0.2s ease;
 }
 
-.copy-url-btn.success svg {
-    fill: var(--success-color);
-}
+.action-btn:hover svg { fill: var(--primary-accent); }
+.bookmark-item.selected .action-btn svg { fill: var(--text-color); }
+.bookmark-item.selected .action-btn:hover svg { fill: var(--selected-text-color); }
+.copy-url-btn.success svg { fill: var(--success-color); }
 
 /* --- Tags Input Field --- */
 .tags-input {
     width: 100%;
     box-sizing: border-box;
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
+    background-color: var(--background-color);
+    border: 1px solid var(--primary-accent); /* Highlight when active */
+    border-radius: 4px;
     color: var(--text-color);
-    font-size: 13px;
-    margin-top: 6px;
-    padding: 8px;
+    font-size: 12px;
+    margin-top: 5px;
+    padding: 6px 8px;
     outline: none;
-    transition: border-color 0.2s ease;
-}
-
-.tags-input:focus {
-    border-color: var(--primary-accent);
 }
