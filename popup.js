@@ -241,13 +241,27 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // --- EVENT DELEGATION ---
+    bookmarksList.addEventListener('mousedown', (e) => {
+        if (e.button === 1 && e.target.closest('.bookmark-item')) {
+            e.preventDefault();
+        }
+        if (e.target.closest('.tags-input')) {
+            isDraggingInTagInput = true;
+        }
+    });
     bookmarksList.addEventListener('mouseup', (e) => {
-        if (isDraggingInTagInput) { isDraggingInTagInput = false; return; }
+        if (isDraggingInTagInput) {
+            return;
+        }
+
         const targetItem = e.target.closest('.bookmark-item');
         if (!targetItem) return;
         
         const actionButton = e.target.closest('.action-btn');
-        if (actionButton) return;
+        const tagInput = e.target.closest('.tags-input');
+        if (actionButton || tagInput) {
+            return;
+        }
 
         const url = targetItem.dataset.url;
         const isMiddleClick = e.button === 1;
@@ -300,27 +314,43 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { window.close(); return; }
+        if (e.key === 'Escape') {
+            window.close();
+            return;
+        }
         const items = Array.from(bookmarksList.querySelectorAll('.bookmark-item')).filter(item => item.style.display !== 'none');
+
         if (e.key === 'Enter') {
             e.preventDefault();
+
+            if (activeTagInput) {
+                closeActiveTagInput();
+                return;
+            }
+
             const query = searchInput.value.trim();
             if (query.startsWith('::')) { const googleQuery = query.substring(2).trim(); if (googleQuery) { const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}&udm=50`; chrome.tabs.create({ url: searchUrl }); window.close(); } return; }
             if (query.startsWith(':')) { const googleQuery = query.substring(1).trim(); if (googleQuery) { const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(googleQuery)}`; chrome.tabs.create({ url: searchUrl }); window.close(); } return; }
+
             if (selectedIndex >= 0 && selectedIndex < items.length) {
                 const selectedItem = items[selectedIndex];
-                const isEditingTags = selectedItem.querySelector('.tags-input')?.style.display === 'block';
-                if (isEditingTags) { return; }
                 const urlToOpen = selectedItem.dataset.url;
-                if (urlToOpen) { navigateToUrl(urlToOpen); }
+                if (urlToOpen) {
+                    navigateToUrl(urlToOpen);
+                }
             }
         }
-        if (items.length === 0) return;
-        if (e.key === 'ArrowDown') { e.preventDefault(); selectedIndex = (selectedIndex + 1) % items.length; updateSelection(); } 
-        else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIndex = (selectedIndex - 1 + items.length) % items.length; updateSelection(); }
-    });
 
-    window.addEventListener('beforeunload', () => {
-        chrome.storage.local.set({ visitCountCache });
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = (selectedIndex + 1) % items.length;
+            updateSelection();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+            updateSelection();
+        }
     });
 });
