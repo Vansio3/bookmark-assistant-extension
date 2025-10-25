@@ -219,11 +219,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateSelection();
             }
         } else {
-            // This is the empty state. Show #main tags or clear list.
+            // This is the empty state. Show #pin tags or clear list.
             if (searchMode === 'bookmarks') {
                 appContainer.classList.add('is-searching');
-                const mainTagResults = await customSearch('#main', allBookmarks, visitCountCache, domainScores, bookmarkTags);
-                displayResults(mainTagResults);
+                const pinTagResults = await customSearch('#pin', allBookmarks, visitCountCache, domainScores, bookmarkTags);
+                displayResults(pinTagResults);
                 if (bookmarksList.querySelector('.bookmark-item')) {
                     selectedIndex = 0;
                     updateSelection();
