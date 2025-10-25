@@ -246,13 +246,13 @@ document.addEventListener('DOMContentLoaded', function () {
             historyToggle.textContent = 'H';
             historyToggle.title = 'Search History';
             historyToggle.classList.add('active');
-            searchInput.placeholder = 'Search history...';
+            searchInput.placeholder = 'Search history, :Google, or ::AI search...';
         } else {
             searchMode = 'bookmarks';
             historyToggle.textContent = 'B';
             historyToggle.title = 'Search Bookmarks';
             historyToggle.classList.remove('active');
-            searchInput.placeholder = 'Search bookmarks (#tag to filter)...';
+            searchInput.placeholder = 'Search bookmarks, #tag, :Google, or ::AI search...';
         }
         searchInput.focus();
         executeSearch();

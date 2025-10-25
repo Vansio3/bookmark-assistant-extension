@@ -63,6 +63,7 @@ html, body {
 
 #searchInput::placeholder {
     color: var(--subtle-text);
+    font-size: 14px; /* Adjust this value to your preference */
 }
 
 /* --- History Toggle Button --- */
