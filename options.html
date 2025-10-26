@@ -35,6 +35,8 @@
         button.secondary:hover { border-color: var(--primary-accent); }
         #status { color: var(--primary-accent); font-style: italic; opacity: 0; transition: opacity 0.3s; }
         #status.visible { opacity: 1; }
+        /* Style for hidden file input */
+        input[type="file"] { display: none; }
     </style>
 </head>
 <body>
@@ -111,6 +113,26 @@
                  <button id="clearDomains" class="secondary">Clear Data</button>
             </div>
             <p class="description">The extension learns which websites you select most often and boosts their ranking. This action will reset that learning history.</p>
+        </div>
+    </div>
+
+    <!-- New Data Management Section -->
+    <div class="option-group">
+        <h2>Data Management</h2>
+        <div class="option">
+            <div class="option-header">
+                <label>Export Settings & Data</label>
+                <button id="exportData" class="secondary">Export</button>
+            </div>
+            <p class="description">Save a backup of your algorithm weights, learned domain preferences, and custom bookmark tags to a JSON file.</p>
+        </div>
+        <div class="option">
+            <div class="option-header">
+                <label>Import Settings & Data</label>
+                <button id="importDataBtn" class="secondary">Import</button>
+                <input type="file" id="importData" accept=".json">
+            </div>
+            <p class="description">Load a previously exported JSON file to restore your settings, domain preferences, and tags.</p>
         </div>
     </div>
 

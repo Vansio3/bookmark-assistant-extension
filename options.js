@@ -12,13 +12,14 @@ const DEFAULT_WEIGHTS = {
 /**
  * Displays a status message to the user for a short duration.
  */
-function showStatus(message) {
+function showStatus(message, isError = false) {
     const status = document.getElementById('status');
     status.textContent = message;
+    status.style.color = isError ? '#ff6b6b' : 'var(--primary-accent)';
     status.classList.add('visible');
     setTimeout(() => {
         status.classList.remove('visible');
-    }, 2000);
+    }, 3000);
 }
 
 /**
@@ -84,7 +85,79 @@ function clearDomainData() {
     }
 }
 
+/**
+ * Gathers all user data and triggers a download.
+ */
+async function exportData() {
+    try {
+        const syncData = await chrome.storage.sync.get('weights');
+        const localData = await chrome.storage.local.get(['domainScores', 'bookmarkTags']);
+
+        const exportObject = {
+            weights: syncData.weights || DEFAULT_WEIGHTS,
+            domainScores: localData.domainScores || {},
+            bookmarkTags: localData.bookmarkTags || {}
+        };
+
+        const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bookmark-assistant-backup-${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showStatus('Data exported successfully.');
+    } catch (error) {
+        console.error('Export failed:', error);
+        showStatus('Error exporting data.', true);
+    }
+}
+
+/**
+ * Handles the file selection for importing data.
+ */
+function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data.weights || !data.domainScores || !data.bookmarkTags) {
+                throw new Error("Invalid or corrupted backup file.");
+            }
+
+            await chrome.storage.sync.set({ weights: data.weights });
+            await chrome.storage.local.set({
+                domainScores: data.domainScores,
+                bookmarkTags: data.bookmarkTags
+            });
+
+            setFormValues(data.weights);
+            showStatus('Data imported successfully!');
+
+        } catch (error) {
+            console.error('Import failed:', error);
+            showStatus(error.message || 'Failed to parse the file.', true);
+        } finally {
+            // Reset the file input so the same file can be selected again
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+
 document.addEventListener('DOMContentLoaded', restoreOptions);
 document.getElementById('save').addEventListener('click', saveOptions);
 document.getElementById('reset').addEventListener('click', resetOptions);
 document.getElementById('clearDomains').addEventListener('click', clearDomainData);
+document.getElementById('exportData').addEventListener('click', exportData);
+document.getElementById('importDataBtn').addEventListener('click', () => {
+    document.getElementById('importData').click();
+});
+document.getElementById('importData').addEventListener('change', handleFileImport);
