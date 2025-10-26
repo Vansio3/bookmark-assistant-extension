@@ -11,6 +11,8 @@ const DEFAULT_WEIGHTS = {
 
 /**
  * Displays a status message to the user for a short duration.
+ * @param {string} message The message to display.
+ * @param {boolean} isError If true, the message will be styled as an error.
  */
 function showStatus(message, isError = false) {
     const status = document.getElementById('status');
@@ -30,7 +32,7 @@ function saveOptions() {
         weights: {
             titleMatch: parseFloat(document.getElementById('titleMatch').value),
             startsWithBonus: parseFloat(document.getElementById('startsWithBonus').value),
-            tagMatch: parseFloat(document.getElementById('tagMatch').value), // Save new value
+            tagMatch: parseFloat(document.getElementById('tagMatch').value),
             urlMatch: parseFloat(document.getElementById('urlMatch').value),
             allWordsBonus: parseFloat(document.getElementById('allWordsBonus').value),
             visitCount: parseFloat(document.getElementById('visitCount').value),
@@ -41,11 +43,12 @@ function saveOptions() {
 
 /**
  * Populates the form with the given weights object.
+ * @param {object} weights The weights object to load into the form.
  */
 function setFormValues(weights) {
     document.getElementById('titleMatch').value = weights.titleMatch;
     document.getElementById('startsWithBonus').value = weights.startsWithBonus;
-    document.getElementById('tagMatch').value = weights.tagMatch; // Set new value
+    document.getElementById('tagMatch').value = weights.tagMatch;
     document.getElementById('urlMatch').value = weights.urlMatch;
     document.getElementById('allWordsBonus').value = weights.allWordsBonus;
     document.getElementById('visitCount').value = weights.visitCount;
@@ -57,7 +60,9 @@ function setFormValues(weights) {
  */
 function restoreOptions() {
     chrome.storage.sync.get({ weights: DEFAULT_WEIGHTS }, (items) => {
-        setFormValues(items.weights);
+        // Ensure that any newly added default weights are included if they're not in storage.
+        const mergedWeights = { ...DEFAULT_WEIGHTS, ...items.weights };
+        setFormValues(mergedWeights);
     });
 }
 
@@ -86,7 +91,29 @@ function clearDomainData() {
 }
 
 /**
- * Gathers all user data and triggers a download.
+ * Validates the structure and types of the imported data object.
+ * @param {object} data The parsed JSON data from an imported file.
+ * @returns {boolean} True if the data is valid, false otherwise.
+ */
+function validateImportedData(data) {
+    if (typeof data !== 'object' || data === null) return false;
+    if (typeof data.weights !== 'object' || data.weights === null) return false;
+
+    // Check if all required weight keys exist and are numbers
+    for (const key of Object.keys(DEFAULT_WEIGHTS)) {
+        if (typeof data.weights[key] !== 'number') {
+            return false;
+        }
+    }
+
+    if (typeof data.domainScores !== 'object' || data.domainScores === null) return false;
+    if (typeof data.bookmarkTags !== 'object' || data.bookmarkTags === null) return false;
+
+    return true;
+}
+
+/**
+ * Gathers all user settings and data and triggers a download of a JSON file.
  */
 async function exportData() {
     try {
@@ -103,7 +130,8 @@ async function exportData() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `bookmark-assistant-backup-${new Date().toISOString().slice(0,10)}.json`;
+        const dateStamp = new Date().toISOString().slice(0, 10);
+        a.download = `bookmark-assistant-backup-${dateStamp}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -116,7 +144,8 @@ async function exportData() {
 }
 
 /**
- * Handles the file selection for importing data.
+ * Handles the file selection event for importing data, validates, and saves it.
+ * @param {Event} event The file input change event.
  */
 function handleFileImport(event) {
     const file = event.target.files[0];
@@ -128,16 +157,18 @@ function handleFileImport(event) {
     reader.onload = async (e) => {
         try {
             const data = JSON.parse(e.target.result);
-            if (!data.weights || !data.domainScores || !data.bookmarkTags) {
+            if (!validateImportedData(data)) {
                 throw new Error("Invalid or corrupted backup file.");
             }
 
+            // If validation passes, save the data
             await chrome.storage.sync.set({ weights: data.weights });
             await chrome.storage.local.set({
                 domainScores: data.domainScores,
                 bookmarkTags: data.bookmarkTags
             });
 
+            // Update the form on the page to reflect the imported settings
             setFormValues(data.weights);
             showStatus('Data imported successfully!');
 
@@ -145,19 +176,24 @@ function handleFileImport(event) {
             console.error('Import failed:', error);
             showStatus(error.message || 'Failed to parse the file.', true);
         } finally {
-            // Reset the file input so the same file can be selected again
+            // Reset the file input so the same file can be selected again if needed
             event.target.value = '';
         }
     };
     reader.readAsText(file);
 }
 
+// --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', restoreOptions);
 document.getElementById('save').addEventListener('click', saveOptions);
 document.getElementById('reset').addEventListener('click', resetOptions);
 document.getElementById('clearDomains').addEventListener('click', clearDomainData);
 document.getElementById('exportData').addEventListener('click', exportData);
+
+// The "Import" button acts as a proxy to click the hidden file input
 document.getElementById('importDataBtn').addEventListener('click', () => {
     document.getElementById('importData').click();
 });
+
+// The actual file input that handles the logic
 document.getElementById('importData').addEventListener('change', handleFileImport);
