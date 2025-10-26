@@ -51,7 +51,7 @@ export async function searchHistory(query) {
 }
 
 /**
- * Performs a fast search on pre-processed bookmarks with cached history scores.
+ * Performs a fast search on pre-processed bookmarks and returns a unique, sorted list.
  */
 export async function customSearch(query, allBookmarks, domainScores, bookmarkTags) {
     const { weights } = await chrome.storage.sync.get({
@@ -124,20 +124,17 @@ export async function customSearch(query, allBookmarks, domainScores, bookmarkTa
         }
         
         if (score > 0) {
-            // Levenshtein check
             if (queryWords.length > 0 && matchedWords.size < queryWords.length) {
                 const distance = levenshteinDistance(queryWords.join(' '), lowerCaseTitle.substring(0, queryWords.join(' ').length));
                 if (distance <= Math.floor(queryWords.join(' ').length / 4)) {
                     score += 20 - distance * 5;
                 }
             }
-            
-            // All words matched bonus
+
             if (matchedWords.size === queryWords.length && queryWords.length > 1) {
                 score *= weights.allWordsBonus;
             }
 
-            // Domain preference bonus
             try {
                 const domain = new URL(bookmark.url).hostname;
                 if (domainScores[domain]) {
@@ -145,7 +142,6 @@ export async function customSearch(query, allBookmarks, domainScores, bookmarkTa
                 }
             } catch (e) { /* Invalid URL */ }
             
-            // Pre-calculated history bonus
             if (bookmark.visitCount > 0) {
                 score += Math.log(bookmark.visitCount + 1) * weights.visitCount;
             }
@@ -158,7 +154,20 @@ export async function customSearch(query, allBookmarks, domainScores, bookmarkTa
         }
     }
     
-    // Sort and return the top results
+    // 1. Sort all results (including duplicates) by score.
     results.sort((a, b) => b.score - a.score);
-    return results.slice(0, 50); // Slice at the very end
+
+    // 2. Use a Map to keep only the first (and therefore highest-scoring)
+    //    entry for each unique URL.
+    const uniqueResults = new Map();
+    for (const result of results) {
+        if (!uniqueResults.has(result.item.url)) {
+            uniqueResults.set(result.item.url, result);
+        }
+    }
+
+    // 3. Convert the Map values back to an array and return the top results.
+    const deduplicatedResults = Array.from(uniqueResults.values());
+    
+    return deduplicatedResults.slice(0, 50);
 }
