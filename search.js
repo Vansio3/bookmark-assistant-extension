@@ -56,7 +56,7 @@ export async function searchHistory(query) {
 export async function customSearch(query, allBookmarks, visitCountCache, domainScores, bookmarkTags) {
     const { weights } = await chrome.storage.sync.get({
         weights: {
-            titleMatch: 10, startsWithBonus: 15, tagMatch: 20, urlMatch: 3,
+            titleMatch: 10, startsWithBonus: 15, tagMatch: 20, urlMatch: 3, pathMatch: 5,
             allWordsBonus: 1.5, visitCount: 5, recency: 10
         }
     });
@@ -88,6 +88,7 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
     for (const bookmark of workingBookmarks) {
         const lowerCaseTitle = bookmark.title.toLowerCase();
         const bookmarkUrl = bookmark.url.toLowerCase();
+        const lowerCasePath = (bookmark.path || '').toLowerCase();
         const tags = bookmarkTags[bookmark.url] || [];
         let score = 0;
         const matchedWords = new Set();
@@ -110,6 +111,10 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
                 } 
                 else if (bookmarkUrl.includes(word)) {
                     score += weights.urlMatch;
+                    wordMatched = true;
+                }
+                else if (lowerCasePath.includes(word)) {
+                    score += weights.pathMatch;
                     wordMatched = true;
                 }
                 if (wordMatched) {

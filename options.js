@@ -4,6 +4,7 @@ const DEFAULT_WEIGHTS = {
     startsWithBonus: 15,
     tagMatch: 20,
     urlMatch: 3,
+    pathMatch: 5,
     allWordsBonus: 1.5,
     visitCount: 5,
     recency: 10
@@ -34,6 +35,7 @@ function saveOptions() {
             startsWithBonus: parseFloat(document.getElementById('startsWithBonus').value),
             tagMatch: parseFloat(document.getElementById('tagMatch').value),
             urlMatch: parseFloat(document.getElementById('urlMatch').value),
+            pathMatch: parseFloat(document.getElementById('pathMatch').value),
             allWordsBonus: parseFloat(document.getElementById('allWordsBonus').value),
             visitCount: parseFloat(document.getElementById('visitCount').value),
             recency: parseFloat(document.getElementById('recency').value)
@@ -50,6 +52,7 @@ function setFormValues(weights) {
     document.getElementById('startsWithBonus').value = weights.startsWithBonus;
     document.getElementById('tagMatch').value = weights.tagMatch;
     document.getElementById('urlMatch').value = weights.urlMatch;
+    document.getElementById('pathMatch').value = weights.pathMatch;
     document.getElementById('allWordsBonus').value = weights.allWordsBonus;
     document.getElementById('visitCount').value = weights.visitCount;
     document.getElementById('recency').value = weights.recency;
