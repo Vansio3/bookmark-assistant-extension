@@ -30,11 +30,9 @@ function flattenBookmarks(bookmarkTreeNodes) {
  * Fetches the entire bookmark tree, flattens it, and stores it in chrome.storage.local.
  */
 function buildFullBookmarkCache() {
-    console.log("Performing full bookmark cache rebuild...");
     chrome.bookmarks.getTree(async (bookmarkTree) => {
         const flattenedBookmarks = flattenBookmarks(bookmarkTree);
         await chrome.storage.local.set({ cachedBookmarks: flattenedBookmarks });
-        console.log("Bookmark cache rebuild complete.");
     });
 }
 
@@ -67,7 +65,6 @@ async function getFolderPath(folderId) {
 async function onBookmarkCreated(id, bookmark) {
     if (!bookmark.url) return;
 
-    console.log("Incrementally adding new bookmark...");
     const data = await chrome.storage.local.get({ cachedBookmarks: [] });
     const cachedBookmarks = data.cachedBookmarks;
     const newPathArray = await getFolderPath(bookmark.parentId);
@@ -79,7 +76,6 @@ async function onBookmarkCreated(id, bookmark) {
     });
 
     await chrome.storage.local.set({ cachedBookmarks });
-    console.log("Bookmark added to cache.");
 }
 
 /**
@@ -87,12 +83,10 @@ async function onBookmarkCreated(id, bookmark) {
  */
 async function onBookmarkRemoved(id, removeInfo) {
     if (!removeInfo.node.url) {
-        console.log("Folder removed, triggering full cache rebuild.");
         buildFullBookmarkCache();
         return;
     }
 
-    console.log("Incrementally removing bookmark...");
     const data = await chrome.storage.local.get({ cachedBookmarks: [] });
     const cachedBookmarks = data.cachedBookmarks;
     const indexToRemove = cachedBookmarks.findIndex(
@@ -102,7 +96,6 @@ async function onBookmarkRemoved(id, removeInfo) {
     if (indexToRemove > -1) {
         cachedBookmarks.splice(indexToRemove, 1);
         await chrome.storage.local.set({ cachedBookmarks });
-        console.log("Bookmark removed from cache.");
     }
 }
 
@@ -110,7 +103,6 @@ async function onBookmarkRemoved(id, removeInfo) {
  * Incrementally updates a bookmark's title in the cache when it's changed.
  */
 async function onBookmarkChanged(id, changeInfo) {
-    console.log("Incrementally updating changed bookmark...");
     const data = await chrome.storage.local.get({ cachedBookmarks: [] });
     const cachedBookmarks = data.cachedBookmarks;
     const [bookmarkNode] = await new Promise(resolve => chrome.bookmarks.get(id, resolve));
@@ -122,7 +114,6 @@ async function onBookmarkChanged(id, changeInfo) {
     if (bookmarkToUpdate) {
         bookmarkToUpdate.title = changeInfo.title;
         await chrome.storage.local.set({ cachedBookmarks });
-        console.log("Bookmark title updated in cache.");
     } else {
         buildFullBookmarkCache();
     }
@@ -132,13 +123,11 @@ async function onBookmarkChanged(id, changeInfo) {
  * Incrementally updates a bookmark's path in the cache when it's moved.
  */
 async function onBookmarkMoved(id, moveInfo) {
-    console.log("Incrementally updating moved bookmark...");
     const data = await chrome.storage.local.get({ cachedBookmarks: [] });
     const cachedBookmarks = data.cachedBookmarks;
     const [bookmarkNode] = await new Promise(resolve => chrome.bookmarks.get(id, resolve));
 
     if (!bookmarkNode || !bookmarkNode.url) {
-        console.log("Folder moved, triggering full cache rebuild.");
         buildFullBookmarkCache();
         return;
     }
@@ -149,19 +138,44 @@ async function onBookmarkMoved(id, moveInfo) {
         const newPathArray = await getFolderPath(moveInfo.parentId);
         bookmarkToUpdate.path = newPathArray.join(' / ');
         await chrome.storage.local.set({ cachedBookmarks });
-        console.log("Bookmark path updated in cache.");
     } else {
         buildFullBookmarkCache();
     }
 }
 
+// --- Singleton Popup Window Management ---
+let popupWindowId = null;
+
+async function createPopupWindow() {
+    const [displayInfo] = await chrome.system.display.getInfo();
+    const { width: screenWidth, height: screenHeight } = displayInfo.workArea;
+
+    const windowWidth = 414;
+    const windowHeight = 477;
+    const left = Math.round((screenWidth - windowWidth) / 2);
+    const top = Math.round((screenHeight - windowHeight) / 2);
+
+    chrome.windows.create({
+        url: "popup.html?source=window",
+        type: "popup",
+        width: windowWidth,
+        height: windowHeight,
+        left: left,
+        top: top,
+        focused: true,
+    }, (window) => {
+        if (window) {
+            popupWindowId = window.id;
+        }
+    });
+}
 
 // --- Event Listeners ---
 chrome.runtime.onInstalled.addListener((details) => {
     chrome.contextMenus.create({
         id: "open-welcome-page",
         title: "Help Guide",
-        contexts: ["action"] 
+        contexts: ["action"]
     });
     if (details.reason === 'install') {
         chrome.tabs.create({ url: 'welcome.html' });
@@ -173,26 +187,26 @@ chrome.bookmarks.onRemoved.addListener(onBookmarkRemoved);
 chrome.bookmarks.onChanged.addListener(onBookmarkChanged);
 chrome.bookmarks.onMoved.addListener(onBookmarkMoved);
 
+chrome.windows.onRemoved.addListener((windowId) => {
+    if (windowId === popupWindowId) {
+        popupWindowId = null;
+    }
+});
+
 // --- Command Listener ---
 chrome.commands.onCommand.addListener(async (command) => {
     if (command === "open_popup_window") {
-        const [displayInfo] = await chrome.system.display.getInfo();
-        const { width: screenWidth, height: screenHeight } = displayInfo.workArea;
-
-        const windowWidth = 414;
-        const windowHeight = 477;
-        const left = Math.round((screenWidth - windowWidth) / 2);
-        const top = Math.round((screenHeight - windowHeight) / 2);
-
-        chrome.windows.create({
-            url: "popup.html?source=window",
-            type: "popup",
-            width: windowWidth,
-            height: windowHeight,
-            left: left,
-            top: top,
-            focused: true,
-        });
+        if (popupWindowId !== null) {
+            chrome.windows.get(popupWindowId, (existingWindow) => {
+                if (chrome.runtime.lastError) {
+                    createPopupWindow();
+                } else {
+                    chrome.windows.update(popupWindowId, { focused: true });
+                }
+            });
+        } else {
+            createPopupWindow();
+        }
     }
 });
 
