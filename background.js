@@ -13,7 +13,9 @@ function flattenBookmarks(bookmarkTreeNodes) {
                 bookmarks.push({
                     title: node.title,
                     url: node.url,
-                    path: path.join(' / ')
+                    path: path.join(' / '),
+                    visitCount: 0,
+                    lastVisitTime: 0
                 });
             }
             if (node.children) {
@@ -27,14 +29,72 @@ function flattenBookmarks(bookmarkTreeNodes) {
 }
 
 /**
- * Fetches the entire bookmark tree, flattens it, and stores it in chrome.storage.local.
+ * Iterates through a list of bookmarks and adds visitCount and lastVisitTime from the History API.
+ * This is an expensive operation and should only be run once during initial setup.
+ * @param {Array} bookmarks The array of bookmark objects to enrich.
+ * @returns {Promise<Array>} The enriched array of bookmarks.
  */
-function buildFullBookmarkCache() {
+async function populateHistoryDataForBookmarks(bookmarks) {
+    for (const bookmark of bookmarks) {
+        if (bookmark.visitCount > 0) continue;
+
+        const historyItems = await new Promise(resolve => {
+            chrome.history.getVisits({ url: bookmark.url }, resolve);
+        });
+
+        if (historyItems && historyItems.length > 0) {
+            bookmark.visitCount = historyItems.length;
+            bookmark.lastVisitTime = historyItems[0].visitTime;
+        }
+    }
+    return bookmarks;
+}
+
+/**
+ * Fetches the entire bookmark tree, flattens it, populates its history,
+ * and stores it in chrome.storage.local.
+ */
+async function buildFullBookmarkCache() {
+    console.log("Building full bookmark cache...");
     chrome.bookmarks.getTree(async (bookmarkTree) => {
-        const flattenedBookmarks = flattenBookmarks(bookmarkTree);
+        let flattenedBookmarks = flattenBookmarks(bookmarkTree);
+        // This is the new, expensive step that runs once in the background.
+        flattenedBookmarks = await populateHistoryDataForBookmarks(flattenedBookmarks);
         await chrome.storage.local.set({ cachedBookmarks: flattenedBookmarks });
+        console.log("Bookmark cache build complete.");
     });
 }
+
+/**
+ * Handles a new visit to a URL, updating the visit count and last visit time
+ * for any matching bookmarks in the cache.
+ * @param {chrome.history.HistoryItem} historyItem The item that was visited.
+ */
+async function handleVisit(historyItem) {
+    const { cachedBookmarks } = await chrome.storage.local.get({ cachedBookmarks: [] });
+    let updated = false;
+
+    const matchingBookmarks = cachedBookmarks.filter(bm => bm.url === historyItem.url);
+
+    if (matchingBookmarks.length > 0) {
+        const visitItems = await new Promise(resolve => {
+            chrome.history.getVisits({ url: historyItem.url }, resolve);
+        });
+        
+        if (visitItems && visitItems.length > 0) {
+            for (const bookmark of matchingBookmarks) {
+                bookmark.visitCount = visitItems.length;
+                bookmark.lastVisitTime = visitItems[0].visitTime;
+                updated = true;
+            }
+        }
+    }
+    
+    if (updated) {
+        await chrome.storage.local.set({ cachedBookmarks });
+    }
+}
+
 
 /**
  * Traverses up the bookmark tree from a given folder ID to construct its full path.
@@ -72,7 +132,9 @@ async function onBookmarkCreated(id, bookmark) {
     cachedBookmarks.push({
         title: bookmark.title,
         url: bookmark.url,
-        path: newPathArray.join(' / ')
+        path: newPathArray.join(' / '),
+        visitCount: 0,
+        lastVisitTime: 0
     });
 
     await chrome.storage.local.set({ cachedBookmarks });
@@ -109,10 +171,12 @@ async function onBookmarkChanged(id, changeInfo) {
 
     if (!bookmarkNode || !bookmarkNode.url) return;
 
-    const bookmarkToUpdate = cachedBookmarks.find(bm => bm.url === bookmarkNode.url);
+    const bookmarksToUpdate = cachedBookmarks.filter(bm => bm.url === bookmarkNode.url);
 
-    if (bookmarkToUpdate) {
-        bookmarkToUpdate.title = changeInfo.title;
+    if (bookmarksToUpdate.length > 0) {
+        for (const bm of bookmarksToUpdate) {
+            bm.title = changeInfo.title;
+        }
         await chrome.storage.local.set({ cachedBookmarks });
     } else {
         buildFullBookmarkCache();
@@ -132,15 +196,7 @@ async function onBookmarkMoved(id, moveInfo) {
         return;
     }
 
-    const bookmarkToUpdate = cachedBookmarks.find(bm => bm.url === bookmarkNode.url);
-
-    if (bookmarkToUpdate) {
-        const newPathArray = await getFolderPath(moveInfo.parentId);
-        bookmarkToUpdate.path = newPathArray.join(' / ');
-        await chrome.storage.local.set({ cachedBookmarks });
-    } else {
-        buildFullBookmarkCache();
-    }
+    buildFullBookmarkCache();
 }
 
 // --- Singleton Popup Window Management ---
@@ -186,6 +242,7 @@ chrome.bookmarks.onCreated.addListener(onBookmarkCreated);
 chrome.bookmarks.onRemoved.addListener(onBookmarkRemoved);
 chrome.bookmarks.onChanged.addListener(onBookmarkChanged);
 chrome.bookmarks.onMoved.addListener(onBookmarkMoved);
+chrome.history.onVisited.addListener(handleVisit);
 
 chrome.windows.onRemoved.addListener((windowId) => {
     if (windowId === popupWindowId) {

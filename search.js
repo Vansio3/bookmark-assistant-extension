@@ -51,9 +51,9 @@ export async function searchHistory(query) {
 }
 
 /**
- * Performs an OPTIMIZED fuzzy search on bookmarks.
+ * Performs a fast search on pre-processed bookmarks with cached history scores.
  */
-export async function customSearch(query, allBookmarks, visitCountCache, domainScores, bookmarkTags) {
+export async function customSearch(query, allBookmarks, domainScores, bookmarkTags) {
     const { weights } = await chrome.storage.sync.get({
         weights: {
             titleMatch: 10, startsWithBonus: 15, tagMatch: 20, urlMatch: 3, pathMatch: 5,
@@ -82,7 +82,7 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
         });
     }
 
-    const preliminaryResults = [];
+    const results = [];
     const isTagOnlySearch = queryWords.length === 0 && tagFilters.length > 0;
 
     for (const bookmark of workingBookmarks) {
@@ -108,7 +108,7 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
                         score += weights.startsWithBonus;
                     }
                     wordMatched = true;
-                } 
+                }
                 else if (bookmarkUrl.includes(word)) {
                     score += weights.urlMatch;
                     wordMatched = true;
@@ -123,7 +123,6 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
             }
         }
         
-        // --- OPTIMIZATION: Only run expensive calculations if a basic score exists ---
         if (score > 0) {
             // Levenshtein check
             if (queryWords.length > 0 && matchedWords.size < queryWords.length) {
@@ -132,11 +131,13 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
                     score += 20 - distance * 5;
                 }
             }
-
-            // Score boosters
+            
+            // All words matched bonus
             if (matchedWords.size === queryWords.length && queryWords.length > 1) {
                 score *= weights.allWordsBonus;
             }
+
+            // Domain preference bonus
             try {
                 const domain = new URL(bookmark.url).hostname;
                 if (domainScores[domain]) {
@@ -144,55 +145,20 @@ export async function customSearch(query, allBookmarks, visitCountCache, domainS
                 }
             } catch (e) { /* Invalid URL */ }
             
-            preliminaryResults.push({ item: bookmark, score });
-        }
-    }
-
-    preliminaryResults.sort((a, b) => b.score - a.score);
-    const topResults = preliminaryResults.slice(0, 25);
-    const historyPromises = [];
-    const CACHE_TTL = 1000 * 60 * 60 * 24;
-
-    for (const result of topResults) {
-        const url = result.item.url;
-        const cached = visitCountCache[url];
-
-        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-            result.score += Math.log(cached.visitCount + 1) * weights.visitCount;
-            if (cached.lastVisit) {
-                const daysAgo = (Date.now() - cached.lastVisit) / (1000 * 60 * 60 * 24);
-                result.score += Math.max(0, weights.recency - daysAgo);
+            // Pre-calculated history bonus
+            if (bookmark.visitCount > 0) {
+                score += Math.log(bookmark.visitCount + 1) * weights.visitCount;
             }
-            continue;
-        }
+            if (bookmark.lastVisitTime > 0) {
+                const daysAgo = (Date.now() - bookmark.lastVisitTime) / (1000 * 60 * 60 * 24);
+                score += Math.max(0, weights.recency - daysAgo);
+            }
 
-        const historyPromise = new Promise(resolve => {
-            chrome.history.getVisits({ url: url }, (visitItems) => {
-                const visitCount = visitItems ? visitItems.length : 0;
-                if (visitCount > 0) {
-                    result.score += Math.log(visitCount + 1) * weights.visitCount;
-                    const lastVisit = visitItems[0].visitTime;
-                    const daysAgo = (Date.now() - lastVisit) / (1000 * 60 * 60 * 24);
-                    result.score += Math.max(0, weights.recency - daysAgo);
-                    visitCountCache[url] = { visitCount, lastVisit, timestamp: Date.now() };
-                }
-                resolve();
-            });
-        });
-        historyPromises.push(historyPromise);
-    }
-    
-    await Promise.all(historyPromises);
-
-    const uniqueResults = new Map();
-    for (const result of topResults) {
-        const existingResult = uniqueResults.get(result.item.url);
-        if (!existingResult || result.score > existingResult.score) {
-            uniqueResults.set(result.item.url, result);
+            results.push({ item: bookmark, score });
         }
     }
-    const deduplicatedResults = Array.from(uniqueResults.values());
     
-    deduplicatedResults.sort((a, b) => b.score - a.score);
-    return deduplicatedResults;
+    // Sort and return the top results
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, 50); // Slice at the very end
 }

@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function () {
     let allBookmarks = [];
     let selectedIndex = -1;
     let searchMode = 'bookmarks';
-    let visitCountCache = {};
     let domainScores = {};
     let bookmarkTags = {};
     let debounceTimer;
@@ -72,7 +71,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         trackDomainSelection(url);
-        chrome.storage.local.set({ visitCountCache });
         chrome.tabs.create({ url: url });
         window.close();
     }
@@ -199,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function () {
             appContainer.classList.add('is-searching');
             let results;
             if (searchMode === 'bookmarks') {
-                results = await customSearch(query, allBookmarks, visitCountCache, domainScores, bookmarkTags);
+                results = await customSearch(query, allBookmarks, domainScores, bookmarkTags);
             } else {
                 results = await searchHistory(query);
             }
@@ -212,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             if (searchMode === 'bookmarks') {
                 appContainer.classList.add('is-searching');
-                const pinTagResults = await customSearch('#pin', allBookmarks, visitCountCache, domainScores, bookmarkTags);
+                const pinTagResults = await customSearch('#pin', allBookmarks, domainScores, bookmarkTags);
                 displayResults(pinTagResults);
                 if (bookmarksList.querySelector('.bookmark-item[style*="display: flex"]')) {
                     selectedIndex = 0;
@@ -225,7 +223,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    async function initialize() { const bookmarksData = await chrome.storage.local.get('cachedBookmarks'); if (bookmarksData.cachedBookmarks && bookmarksData.cachedBookmarks.length > 0 && bookmarksData.cachedBookmarks[0].hasOwnProperty('path')) { allBookmarks = bookmarksData.cachedBookmarks; } else { const bookmarkTree = await new Promise(resolve => chrome.bookmarks.getTree(resolve)); allBookmarks = (function flattenBookmarks(bookmarkTreeNodes) { const bookmarks = []; function traverse(nodes, path) { for (const node of nodes) { if (node.url) { bookmarks.push({ title: node.title, url: node.url, path: path.join(' / ') }); } if (node.children) { const newPath = node.title ? [...path, node.title] : path; traverse(node.children, newPath); } } } traverse(bookmarkTreeNodes, []); return bookmarks; })(bookmarkTree); chrome.storage.local.set({ cachedBookmarks: allBookmarks }); } const storedData = await chrome.storage.local.get(['visitCountCache', 'domainScores', 'bookmarkTags']); visitCountCache = storedData.visitCountCache || {}; domainScores = storedData.domainScores || {}; bookmarkTags = storedData.bookmarkTags || {}; }
+    async function initialize() { 
+        const bookmarksData = await chrome.storage.local.get('cachedBookmarks'); 
+        if (bookmarksData.cachedBookmarks && bookmarksData.cachedBookmarks.length > 0 && bookmarksData.cachedBookmarks[0].hasOwnProperty('path')) { 
+            allBookmarks = bookmarksData.cachedBookmarks; 
+        } else { 
+            console.warn("Background cache not ready, doing a one-time flatten.");
+            const bookmarkTree = await new Promise(resolve => chrome.bookmarks.getTree(resolve)); 
+            allBookmarks = (function flattenBookmarks(bookmarkTreeNodes) { const bookmarks = []; function traverse(nodes, path) { for (const node of nodes) { if (node.url) { bookmarks.push({ title: node.title, url: node.url, path: path.join(' / ') }); } if (node.children) { const newPath = node.title ? [...path, node.title] : path; traverse(node.children, newPath); } } } traverse(bookmarkTreeNodes, []); return bookmarks; })(bookmarkTree); 
+            chrome.storage.local.set({ cachedBookmarks: allBookmarks }); 
+        } 
+        const storedData = await chrome.storage.local.get(['domainScores', 'bookmarkTags']); 
+        domainScores = storedData.domainScores || {}; 
+        bookmarkTags = storedData.bookmarkTags || {}; 
+    }
+    
     async function trackDomainSelection(urlString) { try { const domain = new URL(urlString).hostname; domainScores[domain] = (domainScores[domain] || 0) + 1; await chrome.storage.local.set({ domainScores: domainScores }); } catch (e) { console.warn("Could not parse URL for domain tracking:", urlString); } }
 
     initialize().then(() => {
@@ -267,6 +279,7 @@ document.addEventListener('DOMContentLoaded', function () {
             isDraggingInTagInput = true;
         }
     });
+    
     bookmarksList.addEventListener('mouseup', (e) => {
         if (isDraggingInTagInput) {
             return;
