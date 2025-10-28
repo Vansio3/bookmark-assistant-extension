@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bookmark Assistant",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Quickly search bookmarks & history with intelligent ranking. Use #tags, Google shortcuts, and history toggle to find anything.",
   "homepage_url": "https://sites.google.com/view/bookmark-assistant",
   "permissions": [
