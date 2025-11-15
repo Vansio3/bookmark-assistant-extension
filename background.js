@@ -203,13 +203,37 @@ async function onBookmarkMoved(id, moveInfo) {
 let popupWindowId = null;
 
 async function createPopupWindow() {
-    const [displayInfo] = await chrome.system.display.getInfo();
-    const { width: screenWidth, height: screenHeight } = displayInfo.workArea;
+    // 1. Get all available display information
+    const allDisplays = await chrome.system.display.getInfo();
 
+    // 2. Get the last window the user was interacting with
+    const lastFocused = await new Promise(resolve => chrome.windows.getLastFocused(resolve));
+
+    let targetDisplay = allDisplays[0]; // Default to primary display
+
+    // 3. If there was a focused window, find which display it was on
+    if (lastFocused) {
+        const windowCenterX = lastFocused.left + lastFocused.width / 2;
+        const windowCenterY = lastFocused.top + lastFocused.height / 2;
+
+        const display = allDisplays.find(d => 
+            windowCenterX >= d.workArea.left && windowCenterX < d.workArea.left + d.workArea.width &&
+            windowCenterY >= d.workArea.top && windowCenterY < d.workArea.top + d.workArea.height
+        );
+
+        if (display) {
+            targetDisplay = display;
+        }
+    }
+
+    // 4. Use the target display's work area to center the popup
+    const { workArea } = targetDisplay;
     const windowWidth = 414;
     const windowHeight = 477;
-    const left = Math.round((screenWidth - windowWidth) / 2);
-    const top = Math.round((screenHeight - windowHeight) / 2);
+
+    // Center the new window on the target display
+    const left = Math.round(workArea.left + (workArea.width - windowWidth) / 2);
+    const top = Math.round(workArea.top + (workArea.height - windowHeight) / 2);
 
     chrome.windows.create({
         url: "popup.html?source=window",
